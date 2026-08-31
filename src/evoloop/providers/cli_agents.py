@@ -34,7 +34,8 @@ class ClaudeCLI(Provider):
         return cmd
 
     def complete(self, role, system, prompt):
-        out = _run(self._cmd(role) + ["--system-prompt", system, "--tools", ""], None, stdin=prompt)
+        # text-only judgment calls: no tools, no settings/plugins/CLAUDE.md -> ~400 tokens of overhead instead of ~16k
+        out = _run(self._cmd(role) + ["--system-prompt", system, "--tools", "", "--setting-sources", ""], None, stdin=prompt)
         data = json.loads(out)
         u = data.get("usage", {})
         inp = u.get("input_tokens", 0) + u.get("cache_creation_input_tokens", 0)

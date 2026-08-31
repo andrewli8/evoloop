@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 
 GENERATOR = ("You are a product engineer helping improve an existing software product. Ground everything in the "
-             "provided evidence; never invent facts. Be concise. Output JSON only, no prose.")
+             "provided evidence; never invent facts. Keep every string field under 30 words. Output JSON only, no prose.")
 CRITIC = ("You are an independent, skeptical reviewer. You did not write the proposals you are reviewing. Look for "
-          "symptoms mistaken for causes, simpler alternatives, hidden losers and new failure modes. JSON only.")
+          "symptoms mistaken for causes, simpler alternatives, hidden losers and new failure modes. Under 30 words per field. JSON only.")
 ENGINEER = "You are a careful senior engineer. Smallest coherent change; no unrelated refactoring. JSON only."
 
 

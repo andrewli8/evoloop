@@ -136,16 +136,18 @@ def _search(c: Ctx) -> None:
         c.state.link(o["node_id"], "addresses", problem["node_id"])
     # FINALIST EVALUATION (AI fast, one call per stakeholder role)
     finalists = opportunities[: s.finalists]
+    slim = [{k: f.get(k) for k in ("id", "title", "summary", "mechanism", "software_required")} for f in finalists]
     evals = {f["id"]: [] for f in finalists}
     for role in roles:
         out = _list(llm.json(Role.FAST, P.GENERATOR, P.p("stakeholder_eval", P.STAKEHOLDER_EVAL,
-                                                          {"role": role, "problem": problem["title"], "finalists": finalists})), "evaluations")
+                                                          {"role": role, "problem": problem["title"], "finalists": slim})), "evaluations")
         for e in out:
             if e.get("id") in evals:
                 evals[e["id"]].append({"role": role.get("role"), **e})
     # ADVERSARIAL REVIEW (AI reasoning, critic context)
     reviews = {rv.get("id"): rv for rv in _list(llm.json(Role.REASONING, P.CRITIC, P.p("adversarial", P.ADVERSARIAL,
-                                                       {"problem": problem, "finalists": finalists, "stakeholders": roles})), "reviews")}
+                                                       {"problem": {k: problem.get(k) for k in ("title", "description", "workflow")},
+                                                        "finalists": slim, "stakeholders": [{k: x.get(k) for k in ("role", "goal", "current_pain")} for x in roles]})), "reviews")}
     for f in finalists:
         sc = [search._n(e.get("score"), 3) for e in evals[f["id"]]]
         f["stakeholder_score"] = round(sum(sc) / len(sc), 2) if sc else None
@@ -158,7 +160,8 @@ def _search(c: Ctx) -> None:
 def _branch(c: Ctx, problem, roles, prior_titles, lessons, missing) -> list[dict]:
     s = c.cfg.search
     out = c.llm.json(Role.REASONING, P.GENERATOR, P.p("branches", P.branches(s.branches, s.candidates_per_branch), {
-        "context": scan.summary(c.pack), "problem": problem, "stakeholders": [x.get("role") for x in roles],
+        "context": scan.summary(c.pack), "problem": {k: problem.get(k) for k in ("title", "description", "workflow")},
+        "stakeholders": [x.get("role") for x in roles],
         "already_explored": prior_titles[:30], "lessons": lessons, "missing_mechanisms": missing}))
     cands = []
     # the mandatory "no software" branch survives truncation
@@ -206,9 +209,13 @@ def _learn(c: Ctx) -> None:
     if not r.get("problem"):
         return
     w = r.get("winner") or {}
-    out = c.llm.json(Role.FAST, P.GENERATOR, P.p("lesson", P.LESSON, {
-        "problem": r["problem"]["title"], "decision": r["decision"], "winner": w.get("title"), "stop_reason": r.get("stop_reason"),
-        "verification": r.get("verification", {}).get("ok"), "review": r.get("review", {}).get("verdict")}))
+    if r.get("verification"):  # only an implemented experiment yields something worth a model's interpretation
+        out = c.llm.json(Role.FAST, P.GENERATOR, P.p("lesson", P.LESSON, {
+            "problem": r["problem"]["title"], "decision": r["decision"], "winner": w.get("title"), "stop_reason": r.get("stop_reason"),
+            "verification": r["verification"].get("ok"), "review": r.get("review", {}).get("verdict"), "gate": r.get("gate")}))
+    else:
+        out = {"what_worked": None, "what_failed": None, "confidence": 0.3,
+               "reusable_implication": f"{r['decision']}: {r.get('stop_reason') or 'recommended ' + str(w.get('title'))}"}
     lesson = {"problem": r["problem"]["title"], "workflow": r["problem"].get("workflow"), "mechanism": w.get("mechanism"),
               "prediction": (w.get("summary") or "")[:200], "observed_result": r.get("status", r["decision"]),
               "what_worked": out.get("what_worked"), "what_failed": out.get("what_failed"),
