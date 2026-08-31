@@ -25,7 +25,10 @@ def collect_smoke_evidence(config, cwd: str = ".") -> list[dict]:
     failures, timeouts, slow passes, and missing commands. Never raises."""
     smoke = config.smoke
     out: list[dict] = []
-    for key in (k for k in SMOKE_KEY_ORDER if k in smoke.commands):
+    for key in smoke.commands:
+        if key not in SMOKE_KEY_ORDER:
+            out.append(_ev(f"smoke.commands names unknown key `{key}` (valid: {', '.join(SMOKE_KEY_ORDER)})", key))
+            continue
         cmd = getattr(config.commands, key, None)
         if not cmd:
             out.append(_ev(f"no `{key}` command configured", key))

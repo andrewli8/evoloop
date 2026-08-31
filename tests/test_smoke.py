@@ -67,3 +67,9 @@ def test_enabled_collect_includes_smoke_evidence(tmp_path):
     smoke = [e for e in ev if e["source"] == "smoke"]
     assert len(smoke) == 1
     assert smoke[0]["id"]  # collect assigns ids like every other source
+
+
+def test_unknown_smoke_key_is_surfaced():
+    cfg = _cfg(commands={"test": "true"}, smoke={"commands": ["tests"]})  # typo for "test"
+    ev = collect_smoke_evidence(cfg)
+    assert len(ev) == 1 and "unknown key `tests`" in ev[0]["text"]
