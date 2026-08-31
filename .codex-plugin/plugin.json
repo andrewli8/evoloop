@@ -1,6 +1,6 @@
 {
   "name": "evoloop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "EvolveLoop session mode: a bounded, evidence-driven product improvement loop the agent can run. Levels off|full|ultra.",
   "author": {
     "name": "Andrew Li",
@@ -15,6 +15,5 @@
     "improvement-loop",
     "evidence"
   ],
-  "skills": "./skills/",
-  "hooks": "./hooks/hooks.json"
+  "skills": "./skills/"
 }
