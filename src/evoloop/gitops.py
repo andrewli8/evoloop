@@ -27,11 +27,16 @@ def create_worktree(repo: Path, cycle_id: str) -> tuple[Path, str, str]:
     return wt, branch, _git(repo, "rev-parse", "HEAD").strip()
 
 
+def branch_log(wt: Path, base: str) -> str:
+    """Commit messages on the branch since base: the coder's stated rationale for each change."""
+    return _git(wt, "log", "--format=- %s%n%b", f"{base}..HEAD")[:3000]
+
+
 def merge_base(repo: Path, branch: str) -> str:
     return _git(repo, "merge-base", "HEAD", branch).strip()
 
 
-def diff(wt: Path, base: str, max_chars: int = 12000) -> str:
+def diff(wt: Path, base: str, max_chars: int = 40000) -> str:
     _git(wt, "add", "-A")
     d = _git(wt, "diff", "--cached", "--stat", base) + "\n" + _git(wt, "diff", "--cached", base)
     return d[:max_chars] + ("\n... [diff truncated]" if len(d) > max_chars else "")

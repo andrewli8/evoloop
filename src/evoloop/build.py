@@ -130,7 +130,8 @@ def _reload_contract(c: Ctx, prev: dict) -> None:
 
 
 def _review(c: Ctx, wt, base: str, spec) -> dict:
-    return c.llm.json(Role.REVIEW, P.CRITIC, P.p("review", P.REVIEW, {"spec": spec, "diff": gitops.diff(wt, base)}))
+    return c.llm.json(Role.REVIEW, P.CRITIC, P.p("review", P.REVIEW, {"spec": spec, "commits": gitops.branch_log(wt, base),
+                                                                       "diff": gitops.diff(wt, base)}))
 
 
 def _pr_body(c: Ctx) -> str:

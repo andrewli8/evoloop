@@ -54,7 +54,9 @@ SPEC = ('You have NO tools and cannot inspect files; write from the context give
         'Smallest change that tests the hypothesis. Schema: {"spec":str,"files":[str],"acceptance":[str],"rollback":str}')
 
 REVIEW = ('Review this diff against the spec for correctness, missing states, security/auth, data consistency, error handling, '
-          'race conditions, regressions, test gaps, unnecessary complexity. Schema: {"blocking":[str],"warnings":[str],"verdict":"approve|block"}')
+          'race conditions, regressions, test gaps, unnecessary complexity. The spec is guidance, not law: a deviation that '
+          'reduces risk and is explained in the commit messages is acceptable, a deviation that weakens safety is not. Block only on '
+          'defects you can point to in the diff. Schema: {"blocking":[str],"warnings":[str],"verdict":"approve|block"}')
 
 RECHECK = ('Given the implemented change (diff summary), does it still plausibly solve the evidenced problem for these stakeholders '
            'without unacceptable tradeoffs? Schema: {"still_solves_problem":bool,"tradeoffs","score":1-5}')
