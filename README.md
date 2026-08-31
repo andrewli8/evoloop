@@ -13,7 +13,8 @@ EvolveLoop uses AI for search and judgment, ordinary software for control and ve
 You need Python 3.11+, [uv](https://docs.astral.sh/uv/), and one model provider. The easiest is a coding-agent CLI you already have: [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`) or [Codex](https://github.com/openai/codex) (`codex`). Without one, set `ANTHROPIC_API_KEY` (analyze/plan only, no code changes).
 
 ```bash
-uv tool install git+https://github.com/andrewli8/evoloop   # installs the `evoloop` command
+uvx evolveloop --help          # run without installing
+uv tool install evolveloop     # or install the `evoloop` command persistently
 
 cd your-repo
 evoloop init          # scans the repo, writes .evoloop/, picks the provider it finds
@@ -142,8 +143,11 @@ Without a real metric EvolveLoop only ever claims a change *passed engineering v
 ## Development
 
 ```bash
+git clone https://github.com/andrewli8/evoloop && cd evoloop
 uv venv && uv pip install -e ".[dev]"
 uv run pytest -q
 ```
+
+Releases: bump `version` in `pyproject.toml` and `src/evoloop/__init__.py`, then push a `v<version>` tag. `.github/workflows/publish.yml` builds and publishes to PyPI via trusted publishing (environment `pypi`).
 
 Tests use the mock provider and synthetic git repos; no network, no paid calls.
