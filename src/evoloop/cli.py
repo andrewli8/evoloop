@@ -54,8 +54,8 @@ def init(provider: str = typer.Option("mock", help="mock | claude-cli | codex-cl
     """Inspect the repository and create .evoloop/ (config, project context pack, evals, skill)."""
     repo = _repo()
     pack = scaffold(repo, provider, force)
-    typer.echo(f"initialized {repo / EVO_DIR}")
-    typer.echo(scan.summary(pack))
+    typer.echo(f"Initialized {EVO_DIR}/\n")
+    typer.echo(scan.describe(pack))
 
 
 def _cycle(mode: Mode | None, provider: str | None):

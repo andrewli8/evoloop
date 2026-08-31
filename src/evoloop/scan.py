@@ -65,7 +65,9 @@ def _deps(repo: Path) -> set[str]:
     for name in ("pyproject.toml", "requirements.txt", "Gemfile", "go.mod", "Cargo.toml"):
         p = repo / name
         if p.exists():
-            deps |= set(re.findall(r'^\s*"?([A-Za-z0-9_.@/-]+)', _read(p), re.M))
+            txt = _read(p)
+            deps |= set(re.findall(r'^\s*"?([A-Za-z0-9_.@/-]+)', txt, re.M))
+            deps |= set(re.findall(r'"([A-Za-z0-9_.-]+)\s*[>=<~!\[";]', txt))  # quoted entries in dependency lists
     return {d.lower() for d in deps}
 
 
@@ -145,20 +147,42 @@ def _docs(repo: Path) -> dict:
     return {"headings": headings[:40], "roles": sorted(roles, key=lambda k: -roles[k])[:8], "has_readme": (repo / "README.md").exists()}
 
 
+WORKSPACE_DIRS = ("apps", "packages", "services", "libs")
+
+
+def _workspaces(repo: Path) -> list[Path]:
+    """Sub-projects with their own manifest when the root has none (monorepo without a root package)."""
+    return [d for w in WORKSPACE_DIRS if (repo / w).is_dir()
+            for d in sorted((repo / w).iterdir()) if d.is_dir() and any((d / m).exists() for m in MANIFESTS)]
+
+
+def _join(cmds: list[str]) -> str | None:
+    # ponytail: chained subshells; split into per-workspace commands if a monorepo needs parallel runs
+    return " && ".join(f"(cd {c[0]} && {c[1]})" for c in cmds) or None
+
+
 def scan(repo: Path) -> dict:
     manifests = [m for m in MANIFESTS if (repo / m).exists()]
+    roots = [repo] if manifests else _workspaces(repo)
+    ws_rel = [str(r.relative_to(repo)) for r in roots if r != repo]
+    manifests = sorted({m for r in roots for m in MANIFESTS if (r / m).exists()})
     langs = sorted({MANIFESTS[m] for m in manifests})
-    pm = [v for k, v in LOCKS.items() if (repo / k).exists()]
-    deps = _deps(repo)
+    pm = sorted({v for r in roots for k, v in LOCKS.items() if (r / k).exists()})
+    deps = set().union(*(_deps(r) for r in roots)) if roots else set()
     caps = sorted({label for dep, label in SIGNALS.items() if any(d == dep or d.startswith(dep + "/") or d.startswith(dep + "-") for d in deps)})
     dirs = sorted(p.name for p in repo.iterdir() if p.is_dir() and p.name not in SKIP_DIRS and not p.name.startswith("."))
     ci = [p.name for p in (repo / ".github" / "workflows").glob("*.y*ml")] if (repo / ".github" / "workflows").exists() else []
     agents = [a for a in AGENT_FILES if (repo / a).exists()]
     docs = _docs(repo)
     entities = _entities(repo)
-    cmds = _commands(repo, deps)
+    if ws_rel:
+        per = {w: _commands(repo / w, _deps(repo / w)).model_dump() for w in ws_rel}
+        cmds = Commands(**{k: _join([(w, c[k]) for w, c in per.items() if c[k]]) for k in ("build", "test", "lint", "typecheck")})
+    else:
+        cmds = _commands(repo, deps)
     return {
         "git_head": _git_head(repo),
+        "workspaces": fact(ws_rel, "observed" if ws_rel else "unknown"),
         "languages": fact(langs, "observed" if langs else "unknown"),
         "package_manager": fact(pm, "observed" if pm else "unknown"),
         "manifests": fact(manifests, "observed"),
@@ -211,3 +235,23 @@ def load_pack(repo: Path) -> dict:
 
 def save_pack(repo: Path, pack: dict) -> None:
     (repo / EVO_DIR / "project.json").write_text(json.dumps(pack, indent=1))
+
+
+def describe(pack: dict) -> str:
+    """Human summary for `evoloop init`: only what was found, plus what to check."""
+    g = lambda k: pack.get(k, {}).get("value")  # noqa: E731
+    fmt = lambda v: ", ".join(map(str, v)) if isinstance(v, list) else str(v)  # noqa: E731
+    rows = [("Language", g("languages")), ("Package manager", g("package_manager")), ("Workspaces", g("workspaces")),
+            ("Capabilities", g("capabilities")), ("CI", g("ci")), ("Agent instructions", g("agent_instructions")),
+            ("Roles (inferred)", g("roles")), ("Entities (inferred)", (g("entities") or [])[:8])]
+    L = ["Found:"] + [f"  {k:<20} {fmt(v)}" for k, v in rows if v]
+    cmds = {k: v for k, v in (g("commands") or {}).items() if v}
+    L += ["Commands:"] + ([f"  {k:<10} {v}" for k, v in cmds.items()] or ["  none detected"])
+    missing = [k for k in ("test", "lint", "typecheck", "build") if k not in cmds]
+    L += ["", "Next:"]
+    if missing:
+        L += [f"  - set {', '.join(missing)} under commands: in .evoloop/config.yaml (verification needs at least test)"]
+    L += ["  - drop real feedback/tickets into .evoloop/evidence/*.md (observed evidence ranks highest)",
+          "  - choose a provider in .evoloop/config.yaml (mock | claude-cli | codex-cli | anthropic)",
+          "  - run `evoloop analyze`"]
+    return "\n".join(L)
