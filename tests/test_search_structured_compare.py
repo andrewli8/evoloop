@@ -83,3 +83,8 @@ def test_title_jaccard_duplicates_still_caught():
 def test_prior_title_dedup_unchanged():
     kept, dropped = dedup([cand("Automate the nightly check")], ["Automate the nightly check"])
     assert kept == [] and dropped == 1
+
+
+def test_string_surface_is_not_exploded():
+    a = ensure_structured({"title": "x", "mechanism": "cache", "surface": "src/cli.py"})
+    assert a["surface"] == ["src/cli.py"] and "surface" not in a.get("structured_fallback", [])

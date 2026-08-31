@@ -220,7 +220,7 @@ def _cheap(c: Ctx, cands, problem) -> list[dict]:
 
 
 def _decide(c: Ctx, finalists: list[dict]) -> None:
-    from .contract import classify_risk
+    from .search import classify_candidate_risk
     r = c.result
     viable = [f for f in finalists if not f["adversarial"].get("fatal") and f["adversarial"].get("verdict") != "reject"
               and (f["stakeholder_score"] or 0) >= 3.0]
@@ -228,7 +228,7 @@ def _decide(c: Ctx, finalists: list[dict]) -> None:
         r.update(decision="STOP", winner=None, stop_reason="no finalist survived stakeholder and adversarial evaluation")
         return
     w = max(viable, key=lambda f: (f["stakeholder_score"], f["cheap_score"]))
-    w["risk"] = classify_risk(w["title"] + " " + w.get("summary", ""), c.cfg.high_risk_terms)
+    w["risk"] = classify_candidate_risk(w, c.cfg.high_risk_terms)  # structured signal can only raise the keyword risk
     r["winner"] = w
     if not w.get("software_required", True):
         r.update(decision="RECOMMEND", stop_reason="winner is a process/policy change; nothing to build")

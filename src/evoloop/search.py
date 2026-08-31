@@ -54,6 +54,8 @@ def ensure_structured(c: dict) -> dict:
         mech = c.get("title", "")
         fallback.append("mechanism")
     surface = c.get("surface")
+    if isinstance(surface, str):  # a bare string would explode into characters under list()
+        surface = [surface]
     if not surface:
         surface = re.findall(r"[\w.-]+/[\w./-]+|[\w-]+\.[a-z]{1,4}\b", c.get("title", "") + " " + c.get("summary", ""))
         fallback.append("surface")
@@ -79,7 +81,7 @@ def classify_candidate_risk(c: dict, terms: list[str]) -> str:
     structured = any(t.startswith(s) for t in mech_toks for s in _RISKY_MECH_STEMS) or \
         any(seg.startswith(s) for p in _normalize_surface(c["surface"]) for seg in p.split("/") for s in _SENSITIVE_SURFACES)
     keyword = classify_risk(c.get("title", "") + " " + c.get("summary", ""), terms)
-    return "high" if structured or keyword == "high" else "low"
+    return "high" if structured else keyword  # structured signal only raises to the top level; keyword otherwise preserved
 
 
 def dedup(cands: list[dict], prior_titles: list[str], threshold: float = 0.6) -> tuple[list[dict], int]:

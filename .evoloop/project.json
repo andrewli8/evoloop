@@ -1,5 +1,5 @@
 {
- "git_head": "7ed2fa1d0904fc4a240e529ab93fe28acf3dd9dd",
+ "git_head": "7f09c0b93302203e425fc885c75a8dff8992e0cf",
  "workspaces": {
   "value": [],
   "status": "unknown"
@@ -109,6 +109,14 @@
   "tests/test_init_verification_strength.py",
   "README.md",
   "src/evoloop/search.py",
-  "tests/test_cycle.py"
+  "tests/test_cycle.py",
+  "README.md",
+  "src/evoloop/config.py",
+  "src/evoloop/cycle.py",
+  "src/evoloop/evidence/__init__.py",
+  "src/evoloop/search.py",
+  "src/evoloop/smoke.py",
+  "tests/test_search_structured_compare.py",
+  "tests/test_smoke.py"
  ]
 }
