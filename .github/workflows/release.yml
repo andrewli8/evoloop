@@ -15,6 +15,9 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv build
 
+      # Wheel smoke: the packaged CLI must actually run (catches missing subpackages, broken entry points).
+      - run: uvx --from ./dist/*.whl evoloop version
+
       # Dry run: workflow_dispatch on a branch builds but never cuts a release.
       - uses: softprops/action-gh-release@v2
         if: github.ref_type == 'tag'
