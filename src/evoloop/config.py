@@ -57,7 +57,7 @@ class Optimize(BaseModel):
 
 
 class Evidence(BaseModel):
-    external: list[str] = Field(default_factory=list)  # JSON evidence specs: file path, shell command, or `-` (stdin)
+    external: list[str] = Field(default_factory=list)  # JSON evidence files (or `-`); `cmd:` is refused here, CLI flag only
 
 
 class Config(BaseModel):

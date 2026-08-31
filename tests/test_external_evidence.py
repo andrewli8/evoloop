@@ -22,7 +22,7 @@ def test_array_and_items_object_equivalent(tmp_path):
     assert len(ea) == len(eb) == 3
     assert [{k: v for k, v in e.items() if k != "source"} for e in ea] == [{k: v for k, v in e.items() if k != "source"} for e in eb]
     assert all(e["kind"] == "external" and e["source"] == str(a) for e in ea)
-    assert ea[0]["ref"] == "T-1" and ea[0]["url"] == "https://x/1" and ea[0]["weight"] == 3
+    assert ea[0]["ref"] == "T-1" and ea[0]["url"] == "https://x/1" and "weight" not in ea[0]
     assert ea[1]["text"] == "Admins cannot find the billing page" and ea[1]["class"] == "observed"
     assert ea[2]["class"] == "inferred"
 
@@ -31,12 +31,26 @@ def test_stdin_and_command_sources(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(["from stdin"])))
     e = load_external_evidence("-")
     assert [x["text"] for x in e] == ["from stdin"] and e[0]["source"] == "-"
-    cmd = "echo '[\"from command\"]'"
-    e = load_external_evidence(cmd)
+    cmd = "cmd:echo '[\"from command\"]'"
+    assert load_external_evidence(cmd) == []  # commands refused unless the human typed them (allow_exec)
+    e = load_external_evidence(cmd, allow_exec=True)
     assert [x["text"] for x in e] == ["from command"] and e[0]["source"] == cmd
 
 
-@pytest.mark.parametrize("source", ["{not json", "/nonexistent/file.json", "exit 1", "echo '{\"nope\": 1}'"])
+def test_missing_file_never_executes(tmp_path, caplog):
+    marker = tmp_path / "pwned"
+    assert load_external_evidence(f"touch {marker}", allow_exec=True) == [] and not marker.exists()
+    assert load_external_evidence("file:" + str(tmp_path / "nope.json")) == []
+
+
+def test_config_external_cannot_exec(repo, tmp_path):
+    marker = tmp_path / "pwned"
+    cfg = Config.model_validate({**Config.load(repo).model_dump(), "evidence": {"external": [f"cmd:touch {marker}"]}})
+    run_cycle(repo, cfg, MockProvider(), Mode.ANALYZE)
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize("source", ["{not json", "/nonexistent/file.json", "cmd:exit 1", "cmd:echo '{\"nope\": 1}'"])
 def test_failures_warn_and_yield_nothing(source, tmp_path, caplog):
     if source == "{not json":
         (tmp_path / "bad.json").write_text(source)

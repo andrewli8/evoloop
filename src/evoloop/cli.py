@@ -65,8 +65,6 @@ def _cycle(mode: Mode | None, provider: str | None, from_cycle: str | None = Non
            evidence_json: list[str] | None = None):
     repo = _repo()
     cfg = Config.load(repo)
-    if evidence_json:
-        cfg = cfg.model_copy(update={"evidence": cfg.evidence.model_copy(update={"external": [*cfg.evidence.external, *evidence_json]})})
     if not cfg.enabled or (mode or cfg.mode) == Mode.OFF:
         typer.echo("evoloop is disabled; no model calls made")
         raise typer.Exit(0)
@@ -78,7 +76,7 @@ def _cycle(mode: Mode | None, provider: str | None, from_cycle: str | None = Non
     if name == "mock":
         typer.echo("WARNING: provider=mock — output is placeholder text for testing, not analysis. Set provider in .evoloop/config.yaml.", err=True)
     try:
-        r = run_cycle(repo, cfg, make_provider(name, cfg.models), mode, from_cycle, pick)
+        r = run_cycle(repo, cfg, make_provider(name, cfg.models), mode, from_cycle, pick, evidence_json=evidence_json)
     except LockedError as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(3)
@@ -91,18 +89,19 @@ def _cycle(mode: Mode | None, provider: str | None, from_cycle: str | None = Non
     typer.echo(f"usage: {r.get('usage')}")
 
 
-EVIDENCE_JSON = typer.Option(None, "--evidence-json", help="extra JSON evidence: file path, shell command, or `-` for stdin (repeatable)")
+def _evidence_opt():  # a fresh OptionInfo per command; Typer does not like one instance shared across commands
+    return typer.Option(None, "--evidence-json", help="extra JSON evidence: file path, `-` for stdin, or `cmd:<shell>` (repeatable)")
 
 
 @app.command()
-def analyze(provider: str = typer.Option(None), evidence_json: list[str] = EVIDENCE_JSON):
+def analyze(provider: str = typer.Option(None), evidence_json: list[str] = _evidence_opt()):
     """Run one cycle in ANALYZE mode: recommend 0-1 intervention, change no code."""
     _cycle(Mode.ANALYZE, provider, evidence_json=evidence_json)
 
 
 @app.command()
 def run(mode: Mode = typer.Option(None, help="analyze | plan | build | pr (default: config mode)"),
-        provider: str = typer.Option(None), evidence_json: list[str] = EVIDENCE_JSON):
+        provider: str = typer.Option(None), evidence_json: list[str] = _evidence_opt()):
     """Run one bounded cycle. Continuous use = a scheduler calling this repeatedly."""
     _cycle(mode, provider, evidence_json=evidence_json)
 
