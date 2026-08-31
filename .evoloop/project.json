@@ -1,5 +1,5 @@
 {
- "git_head": "233c8dff983b632ebda437ca2e3cf058a0e58bb0",
+ "git_head": "e7cf1e1bf46801243d0ff80f2e4de2f927103f0e",
  "workspaces": {
   "value": [],
   "status": "unknown"
@@ -100,5 +100,12 @@
   "value": null,
   "status": "unknown"
  },
- "changed_since_scan": []
+ "changed_since_scan": [
+  "README.md",
+  "src/evoloop/cli.py",
+  "src/evoloop/commands.py",
+  "src/evoloop/gitops.py",
+  "tests/test_build.py",
+  "tests/test_init_verification_strength.py"
+ ]
 }
