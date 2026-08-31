@@ -51,9 +51,10 @@ def test_risky_mechanism_elevates_risk_without_keywords():
     assert classify_candidate_risk(c, TERMS) == "high"
 
 
-def test_sensitive_surface_elevates_risk():
+def test_repo_structure_surface_no_longer_elevates_risk():
+    # policy change (observed over-fire, cycle 2ae3): config/cli module paths are ordinary, not sensitive
     c = cand("Speed up startup", "small tweak", mechanism="cache computed value", surface=["src/evoloop/config.py"])
-    assert classify_candidate_risk(c, TERMS) == "high"
+    assert classify_candidate_risk(c, TERMS) == "low"
 
 
 def test_risk_is_max_of_structured_and_keyword():
