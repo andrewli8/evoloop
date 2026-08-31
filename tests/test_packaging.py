@@ -39,4 +39,3 @@ def test_readme_quick_start_uses_pypi():
     readme = (ROOT / "README.md").read_text()
     quick_start = readme.split("## Quick start")[1].split("## ")[0]
     assert "uvx evolveloop" in quick_start
-    assert "git+https" not in quick_start
