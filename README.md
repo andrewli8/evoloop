@@ -13,9 +13,9 @@ EvolveLoop uses AI for search and judgment, ordinary software for control and ve
 You need Python 3.11+, [uv](https://docs.astral.sh/uv/), and one model provider. The easiest is a coding-agent CLI you already have: [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`) or [Codex](https://github.com/openai/codex) (`codex`). Without one, set `ANTHROPIC_API_KEY` (analyze/plan only, no code changes).
 
 ```bash
-uvx evolveloop --help          # run without installing (after the first PyPI release)
-uv tool install evolveloop     # or install the `evoloop` command persistently
-uv tool install git+https://github.com/andrewli8/evoloop   # until the first release: install from git
+uv tool install git+https://github.com/andrewli8/evoloop
+evoloop --help        # confirm the `evoloop` command is on PATH
+# uninstall later with: uv tool uninstall evolveloop
 
 cd your-repo
 evoloop init          # scans the repo, writes .evoloop/, picks the provider it finds

@@ -35,7 +35,7 @@ def test_publish_step_only_runs_on_tags():
     assert "if: github.ref_type == 'tag'" in publish_step
 
 
-def test_readme_quick_start_uses_pypi():
+def test_readme_quick_start_installs_from_git():
     readme = (ROOT / "README.md").read_text()
     quick_start = readme.split("## Quick start")[1].split("## ")[0]
-    assert "uvx evolveloop" in quick_start
+    assert "uv tool install git+" in quick_start
