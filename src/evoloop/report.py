@@ -12,6 +12,8 @@ def write(c) -> None:
 
 def render(r: dict) -> str:
     L = [f"# EvolveLoop cycle {r.get('cycle')} — {r.get('mode')} — decision: {r.get('decision')}", ""]
+    if r.get("provider") == "mock":
+        L += ["> **MOCK PROVIDER** — every model output below is placeholder text. Set `provider` in `.evoloop/config.yaml`.", ""]
     if r.get("stop_reason"):
         L += [f"**Outcome:** {r['stop_reason']}", ""]
     p = r.get("problem")

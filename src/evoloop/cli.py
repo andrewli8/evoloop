@@ -8,7 +8,7 @@ import typer
 
 from . import __version__, gitops, scan, skill as skill_mod
 from .config import EVO_DIR, Config, Mode
-from .providers import make_provider
+from .providers import detect_provider, make_provider
 from .state import LockedError, State
 
 app = typer.Typer(help="EvolveLoop: bounded, evidence-driven product improvement loop.", no_args_is_help=True)
@@ -26,14 +26,14 @@ def _repo() -> Path:
     return p
 
 
-def scaffold(repo: Path, provider: str = "mock", force: bool = False, evidence_sources: list[str] | None = None) -> dict:
+def scaffold(repo: Path, provider: str | None = None, force: bool = False, evidence_sources: list[str] | None = None) -> dict:
     """Create/refresh .evoloop/ deterministically. Returns the project context pack."""
     d = repo / EVO_DIR
     d.mkdir(exist_ok=True)
     pack = scan.scan(repo)
     scan.save_pack(repo, pack)
     if not Config.path(repo).exists() or force:
-        cfg = Config(provider=provider, commands=Config.model_validate({"commands": pack["commands"]["value"]}).commands)
+        cfg = Config(provider=provider or detect_provider(), commands=Config.model_validate({"commands": pack["commands"]["value"]}).commands)
         if evidence_sources:
             cfg = cfg.model_copy(update={"evidence_sources": evidence_sources})
         cfg.save(repo)
@@ -49,13 +49,15 @@ def scaffold(repo: Path, provider: str = "mock", force: bool = False, evidence_s
 
 
 @app.command()
-def init(provider: str = typer.Option("mock", help="mock | claude-cli | codex-cli | anthropic"),
+def init(provider: str = typer.Option(None, help="claude-cli | codex-cli | anthropic | mock (default: auto-detect)"),
          force: bool = typer.Option(False, help="overwrite existing config")):
     """Inspect the repository and create .evoloop/ (config, project context pack, evals, skill)."""
     repo = _repo()
     pack = scaffold(repo, provider, force)
     typer.echo(f"Initialized {EVO_DIR}/\n")
     typer.echo(scan.describe(pack))
+    prov = Config.load(repo).provider
+    typer.echo(f"  - provider: {prov}" + ("  (WARNING: mock returns placeholder output; install `claude` or `codex`, or set ANTHROPIC_API_KEY)" if prov == "mock" else ""))
 
 
 def _cycle(mode: Mode | None, provider: str | None):
@@ -68,8 +70,11 @@ def _cycle(mode: Mode | None, provider: str | None):
         typer.echo("experiment mode needs real metrics in evals.yaml; not wired in V1. Use pr.", err=True)
         raise typer.Exit(2)
     from .cycle import run_cycle
+    name = provider or cfg.provider
+    if name == "mock":
+        typer.echo("WARNING: provider=mock — output is placeholder text for testing, not analysis. Set provider in .evoloop/config.yaml.", err=True)
     try:
-        r = run_cycle(repo, cfg, make_provider(provider or cfg.provider, cfg.models), mode)
+        r = run_cycle(repo, cfg, make_provider(name, cfg.models), mode)
     except LockedError as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(3)

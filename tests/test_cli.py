@@ -27,10 +27,11 @@ def test_cli_flow(tmp_path):
     (r / ".claude").mkdir()
     subprocess.run(["git", "add", "-A"], cwd=r, check=True)
     subprocess.run(["git", "-c", "user.email=a@b", "-c", "user.name=a", "commit", "-qm", "init"], cwd=r, check=True)
-    assert in_repo(r, lambda: runner.invoke(app, ["init"])).exit_code == 0
+    assert in_repo(r, lambda: runner.invoke(app, ["init", "--provider", "mock"])).exit_code == 0
     assert (r / ".evoloop" / "config.yaml").exists() and (r / ".evoloop" / "project.json").exists()
     out = in_repo(r, lambda: runner.invoke(app, ["analyze"]))
     assert out.exit_code == 0 and "decision=RECOMMEND" in out.stdout, out.stdout
+    assert "MOCK PROVIDER" in next((r / ".evoloop" / "runs").iterdir()).joinpath("report.md").read_text()
     assert in_repo(r, lambda: runner.invoke(app, ["disable"])).exit_code == 0
     out = in_repo(r, lambda: runner.invoke(app, ["run", "--mode", "build"]))
     assert "disabled" in out.stdout

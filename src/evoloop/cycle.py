@@ -43,7 +43,7 @@ def run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None = N
     pack = scan.refresh(repo, scan.load_pack(repo))
     scan.save_pack(repo, pack)
     llm = Budgeted(provider, cfg.budget.max_model_calls, cfg.budget.max_tokens, cfg.models)
-    ctx = Ctx(repo, cfg, state, llm, mode, cid, run_dir, pack, {"cycle": cid, "mode": mode.value, "started": time.time()})
+    ctx = Ctx(repo, cfg, state, llm, mode, cid, run_dir, pack, {"cycle": cid, "mode": mode.value, "provider": provider.name, "started": time.time()})
     try:
         _search(ctx)
         if ctx.result["decision"] == "BUILD":
