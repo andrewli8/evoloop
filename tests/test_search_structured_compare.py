@@ -88,3 +88,10 @@ def test_prior_title_dedup_unchanged():
 def test_string_surface_is_not_exploded():
     a = ensure_structured({"title": "x", "mechanism": "cache", "surface": "src/cli.py"})
     assert a["surface"] == ["src/cli.py"] and "surface" not in a.get("structured_fallback", [])
+
+
+def test_dotted_module_names_stay_distinct():
+    a = {"title": "x", "mechanism": "cache results", "surface": ["evoloop.search"]}
+    b = {"title": "y", "mechanism": "cache results", "surface": ["evoloop.cycle"]}
+    kept, dropped = dedup([a, b], [])
+    assert len(kept) == 2 and dropped == 0

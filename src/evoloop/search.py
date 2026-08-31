@@ -40,7 +40,8 @@ def _normalize_surface(paths: list[str]) -> frozenset[str]:
     for p in paths or []:
         p = str(p).lower().replace("\\", "/").strip()
         p = p.removeprefix("./").removeprefix("src/")
-        p = re.sub(r"\.[a-z0-9]{1,5}$", "", p)
+        p = re.sub(r"\.(py|pyi|ts|tsx|js|jsx|mjs|cjs|go|rs|rb|java|kt|php|css|scss|html|md|yaml|yml|toml|json|sql)$", "", p)  # only real file extensions; 'evoloop.search' is a module, not 'evoloop'
+
         if p:
             out.add(p)
     return frozenset(out)
