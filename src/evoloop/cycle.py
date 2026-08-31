@@ -89,6 +89,13 @@ def _resume(c: Ctx, from_cycle: str, pick: str | None) -> None:
     pr = prev["result"]
     cands = pr.get("opportunities") or []
     w = next((o for o in cands if o.get("id") == pick), None) if pick else pr.get("winner")
+    if w and not pick and not w.get("software_required", True):
+        # a process/policy winner is for humans; a build cycle falls through to the best candidate that is code
+        code = [o for o in cands if o.get("software_required", True)
+                and not (o.get("adversarial") or {}).get("fatal") and (o.get("adversarial") or {}).get("verdict") != "reject"]
+        if code:
+            c.result["process_recommendation"] = w["title"]
+            w = max(code, key=lambda o: ((o.get("stakeholder_score") or 3.0), o.get("cheap_score", 0)))
     if not w:
         raise ValueError(f"cycle {from_cycle} has no {'candidate ' + pick if pick else 'winner'}; ids: {[o.get('id') for o in cands]}")
     c.result.update(problem=pr["problem"], supporting_evidence=pr.get("supporting_evidence", []), stakeholders=pr.get("stakeholders", []),

@@ -172,3 +172,15 @@ def test_auto_merge_backs_out_when_merged_tree_fails(repo):
     assert r["status"] == "awaiting_human" and r["auto_merge"]["done"] is False and r["auto_merge"]["reason"] == "post-merge verification failed"
     assert subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True).stdout == head
     assert not (repo / "src" / "feature.ts").exists()
+
+
+def test_build_falls_through_process_winner_to_code(repo):
+    proc = {"branches": [{"mechanism": "no-software/process", "candidates": [
+        {"title": "Write a runbook", "summary": "docs", "mechanism": "no-software/process", "software_required": False}]},
+        {"mechanism": "automate", "candidates": [{"title": "Automate the check", "summary": "code", "mechanism": "automate", "software_required": True}]}]}
+    scores = lambda inp: {"scores": [{"id": c["id"], "impact": 5 if c.get("software_required") is False else 3, "effort": 1, "risk": 1} for c in inp["candidates"]]}
+    a = run_cycle(repo, cfg(repo, loops={"refinement": 0}), MockProvider(script={"branches": proc, "cheap_scores": scores}), Mode.ANALYZE)
+    assert a["winner"]["software_required"] is False
+    r = run_cycle(repo, cfg(repo), MockProvider(implement_fn=impl_ok), Mode.BUILD, from_cycle=a["cycle"])
+    assert r["winner"]["title"] == "Automate the check" and r["process_recommendation"] == "Write a runbook"
+    assert r["status"] == "awaiting_human"

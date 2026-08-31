@@ -1,5 +1,5 @@
 {
- "git_head": "e3ca3909130d7f096a0e1eb8d5dfcb8614a8fc14",
+ "git_head": "7c78fd5ef85457bc4772fb631324f5106f809880",
  "workspaces": {
   "value": [],
   "status": "unknown"
@@ -110,6 +110,20 @@
   "src/evoloop/gitops.py",
   "src/evoloop/build.py",
   "src/evoloop/gitops.py",
-  "src/evoloop/prompts.py"
+  "src/evoloop/prompts.py",
+  ".claude-plugin/plugin.json",
+  ".codex-plugin/plugin.json",
+  "README.md",
+  "hooks/evoloop_hook.py",
+  "skills/evoloop/SKILL.md",
+  "src/evoloop/build.py",
+  "src/evoloop/cli.py",
+  "src/evoloop/config.py",
+  "src/evoloop/cycle.py",
+  "src/evoloop/evidence/__init__.py",
+  "src/evoloop/evidence/external.py",
+  "src/evoloop/gitops.py",
+  "tests/test_build.py",
+  "tests/test_external_evidence.py"
  ]
 }
