@@ -109,9 +109,10 @@ def gate(c: Ctx, wt, branch: str, base: str, res: dict, review: dict, hypothesis
 def regate(c: Ctx, prev: dict) -> None:
     """Re-run verification, review, recheck and gate on a blocked cycle's existing branch (no new coding call)."""
     from pathlib import Path
-    wt, base = Path(prev["worktree"]), prev.get("base")
-    if not wt.exists() or not base:
-        raise ValueError("cycle has no worktree/base to regate")
+    wt = Path(prev["worktree"])
+    if not wt.exists():
+        raise ValueError("cycle has no worktree to regate")
+    base = prev.get("base") or gitops.merge_base(c.repo, prev["branch"])  # cycles built before `base` was recorded
     c.result.update({k: prev[k] for k in ("problem", "stakeholders", "winner", "spec", "contract", "branch", "worktree", "base") if k in prev})
     c.result["regate_of"] = prev["cycle"]
     _reload_contract(c, prev)

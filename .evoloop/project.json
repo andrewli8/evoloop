@@ -1,5 +1,5 @@
 {
- "git_head": "7f98b0dc348ce163de2dba18d73f46b0e78d869b",
+ "git_head": "df24b576d1b0cc608401a5e577284a39711d9382",
  "workspaces": {
   "value": [],
   "status": "unknown"
@@ -99,6 +99,12 @@
  },
  "changed_since_scan": [
   "src/evoloop/cli.py",
-  "src/evoloop/prompts.py"
+  "src/evoloop/prompts.py",
+  "src/evoloop/build.py",
+  "src/evoloop/cli.py",
+  "src/evoloop/cycle.py",
+  "src/evoloop/gitops.py",
+  "src/evoloop/prompts.py",
+  "tests/test_build.py"
  ]
 }
