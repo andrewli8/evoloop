@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -55,13 +56,19 @@ class Budgeted:
         self.p, self.max_calls, self.max_tokens = provider, max_calls, max_tokens
         self.usage = Usage()
         self.models = models or {}
+        self.calls: list[dict] = []  # per-call audit trail, written to runs/<cycle>/calls.jsonl
 
     def text(self, role: Role, system: str, prompt: str) -> str:
         if self.usage.calls >= self.max_calls:
             raise BudgetExceeded(f"model call budget {self.max_calls} reached")
         if self.usage.input_tokens + self.usage.output_tokens >= self.max_tokens:
             raise BudgetExceeded(f"token budget {self.max_tokens} reached")
+        t = time.time()
         out, i, o, *rest = self.p.complete(role, system, prompt)
+        m = re.match(r"\[phase:(\w+)\]", prompt)
+        self.calls.append({"phase": m.group(1) if m else "?", "role": role.value, "input_tokens": i, "output_tokens": o,
+                           "cached_input_tokens": rest[0] if rest else 0, "prompt_chars": len(prompt), "reply_chars": len(out),
+                           "seconds": round(time.time() - t, 1)})
         self.usage.calls += 1
         self.usage.input_tokens += i
         self.usage.output_tokens += o

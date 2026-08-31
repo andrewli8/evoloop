@@ -7,6 +7,7 @@ import json
 def write(c) -> None:
     r = c.result
     (c.run_dir / "result.json").write_text(json.dumps(r, indent=1, default=str))
+    (c.run_dir / "calls.jsonl").write_text("".join(json.dumps(x) + "\n" for x in c.llm.calls))
     (c.run_dir / "report.md").write_text(render(r))
 
 

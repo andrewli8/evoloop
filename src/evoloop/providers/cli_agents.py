@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -11,8 +12,8 @@ from .base import Provider, Role
 CODE_TOOLS = "Edit,Write,Read,Bash,Grep,Glob"
 
 
-def _run(cmd: list[str], cwd: Path | None, stdin: str | None = None, timeout: int = 1800) -> str:
-    r = subprocess.run(cmd, cwd=cwd, input=stdin, capture_output=True, text=True, timeout=timeout)
+def _run(cmd: list[str], cwd: Path | None, stdin: str | None = None, timeout: int = 1800, env: dict | None = None) -> str:
+    r = subprocess.run(cmd, cwd=cwd, input=stdin, capture_output=True, text=True, timeout=timeout, env=env)
     if r.returncode != 0:
         raise RuntimeError(f"{cmd[0]} failed ({r.returncode}): {r.stderr[-500:]}")
     return r.stdout
@@ -35,7 +36,9 @@ class ClaudeCLI(Provider):
 
     def complete(self, role, system, prompt):
         # text-only judgment calls: no tools, no settings/plugins/CLAUDE.md -> ~400 tokens of overhead instead of ~16k
-        out = _run(self._cmd(role) + ["--system-prompt", system, "--tools", "", "--setting-sources", ""], None, stdin=prompt)
+        # fast role = scoring/extraction: extended thinking there was 70-90% of all output tokens for no content gain
+        env = {**os.environ, "MAX_THINKING_TOKENS": "0"} if role == Role.FAST else None
+        out = _run(self._cmd(role) + ["--system-prompt", system, "--tools", "", "--setting-sources", ""], None, stdin=prompt, env=env)
         data = json.loads(out)
         u = data.get("usage", {})
         inp = u.get("input_tokens", 0) + u.get("cache_creation_input_tokens", 0)
