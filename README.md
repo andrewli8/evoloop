@@ -112,7 +112,7 @@ Set `provider` in `config.yaml`:
 1. **Observe** (deterministic): refresh the context pack from `git diff`, collect evidence from sources that exist: `TODO`/`FIXME`, fix commits, open GitHub issues, pain words in docs, your notes in `.evoloop/evidence/`, outcomes of previous cycles. Evidence is classed `observed > inferred > hypothetical > simulated`.
 2. **Problem search** (1 fast call): problems must cite evidence ids; uncited ones are dropped. No evidence → the cycle stops with *insufficient evidence* and makes no further calls.
 3. **Stakeholders** (1 fast call): 2–4 roles inferred from the repo and problem. Simulated, never customer validation.
-4. **Solution branching** (1 reasoning call): ≤5 neighborhoods that differ in mechanism, ≤2 candidates each, one branch must be "no software". Deterministic dedup against this batch and archived candidates.
+4. **Solution branching** (1 reasoning call): ≤5 neighborhoods that differ in mechanism, ≤2 candidates each, one branch must be "no software". Deterministic dedup against this batch and archived candidates — lexical similarity plus structured mechanism/surface fields, so paraphrased duplicates collapse and the declared touched surfaces feed an extra risk signal that can only raise, never lower, the keyword-based risk gate.
 5. **Cheap tournament** (1 fast call + deterministic ranking): keep ~5 opportunities. One refinement pass only if candidates are weak or homogeneous.
 6. **Finalist evaluation** (1 fast call per stakeholder): 3 finalists scored on pain fit, utility, behaviour change, friction, new work, failure cases.
 7. **Adversarial review** (1 reasoning call, separate critic system prompt): symptom vs cause, simpler alternative, who loses, new failure modes.
