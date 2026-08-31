@@ -81,6 +81,8 @@ EvolveLoop also ships as a Claude Code / Codex plugin, the same shape as `cavema
 
 `/evoloop off|full|ultra` switches for the session, `/evoloop default <level>` persists it (`~/.config/evoloop/config.json`, or `EVOLOOP_DEFAULT_MODE`), "stop evoloop" turns it off. On session start the hook also injects `evoloop status` when the current repo is initialized, so the agent knows about cycles awaiting you. The plugin never raises a delivery mode; `build`/`pr` still come from `.evoloop/config.yaml` that you edit.
 
+**On a cadence.** Inside Claude Code, `/loop 30m /evoloop:evoloop-cycle` runs one cycle every 30 minutes for the life of the session; ticks while a build is `awaiting_human` cost zero model calls and just remind you to resolve. Unattended, use cron or CI on the CLI directly: `*/30 * * * * cd /repo && evoloop run` (with `mode: build` or `pr` in `config.yaml`); the plugin is not involved and nothing merges without you.
+
 Without the plugin, `evoloop skill install` writes a thin `SKILL.md` / `AGENTS.md` section that teaches the host agent the same rules.
 
 ## Providers

@@ -1,6 +1,6 @@
 {
   "name": "evoloop",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "EvolveLoop session mode: a bounded, evidence-driven product improvement loop the agent can run. Levels off|full|ultra.",
   "author": {
     "name": "Andrew Li",
