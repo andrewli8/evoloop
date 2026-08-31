@@ -10,9 +10,13 @@ EvolveLoop uses AI for search and judgment, ordinary software for control and ve
 
 ## Install and run
 
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+
 ```bash
-uv tool install evolveloop       # PyPI name is evolveloop; the command is `evoloop`
-# or, from a checkout: uv tool install /path/to/evoloop
+uv tool install git+https://github.com/andrewli8/evoloop   # installs the `evoloop` command
+# from a local checkout instead: uv tool install /path/to/evoloop
+# once published: uv tool install evolveloop  (PyPI name; `evoloop` is an unrelated package)
+
 cd your-repo
 evoloop init                     # inspects the repo, writes .evoloop/
 evoloop analyze                  # one cycle, recommendation only (default mode)
