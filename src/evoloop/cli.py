@@ -61,7 +61,7 @@ def init(provider: str = typer.Option(None, help="claude-cli | codex-cli | anthr
     typer.echo(f"  - provider: {prov}" + ("  (WARNING: mock returns placeholder output; install `claude` or `codex`, or set ANTHROPIC_API_KEY)" if prov == "mock" else ""))
 
 
-def _cycle(mode: Mode | None, provider: str | None, from_cycle: str | None = None, pick: str | None = None):
+def _cycle(mode: Mode | None, provider: str | None, from_cycle: str | None = None, pick: str | None = None, regate_cycle: str | None = None):
     repo = _repo()
     cfg = Config.load(repo)
     if not cfg.enabled or (mode or cfg.mode) == Mode.OFF:
@@ -75,7 +75,7 @@ def _cycle(mode: Mode | None, provider: str | None, from_cycle: str | None = Non
     if name == "mock":
         typer.echo("WARNING: provider=mock — output is placeholder text for testing, not analysis. Set provider in .evoloop/config.yaml.", err=True)
     try:
-        r = run_cycle(repo, cfg, make_provider(name, cfg.models), mode, from_cycle, pick)
+        r = run_cycle(repo, cfg, make_provider(name, cfg.models), mode, from_cycle, pick, regate_cycle)
     except LockedError as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(3)
@@ -106,6 +106,12 @@ def build(cycle: str, pick: str = typer.Option(None, help="opportunity id (c1, c
           pr: bool = typer.Option(False, help="open a PR after the gate passes"), provider: str = typer.Option(None)):
     """Implement a recommendation from a previous analyze/plan cycle: no new search, same contract/verify/review/gate."""
     _cycle(Mode.PR if pr else Mode.BUILD, provider, cycle, pick)
+
+
+@app.command()
+def regate(cycle: str, pr: bool = typer.Option(False), provider: str = typer.Option(None)):
+    """Re-run verification, independent review, recheck and the delivery gate on a blocked cycle's branch (no new coding)."""
+    _cycle(Mode.PR if pr else Mode.BUILD, provider, regate_cycle=cycle)
 
 
 @app.command()

@@ -18,30 +18,31 @@ def is_repo(path: Path) -> bool:
     return subprocess.run(["git", "rev-parse", "--git-dir"], cwd=path, capture_output=True).returncode == 0
 
 
-def create_worktree(repo: Path, cycle_id: str) -> tuple[Path, str]:
+def create_worktree(repo: Path, cycle_id: str) -> tuple[Path, str, str]:
+    """Returns (worktree path, branch, base sha). All diffs are against base: coding agents may commit on the branch."""
     branch = f"evoloop/{cycle_id}"
     wt = repo / EVO_DIR / "worktrees" / cycle_id
     wt.parent.mkdir(parents=True, exist_ok=True)
     _git(repo, "worktree", "add", "-b", branch, str(wt), "HEAD")
-    return wt, branch
+    return wt, branch, _git(repo, "rev-parse", "HEAD").strip()
 
 
-def diff(wt: Path, max_chars: int = 12000) -> str:
+def diff(wt: Path, base: str, max_chars: int = 12000) -> str:
     _git(wt, "add", "-A")
-    d = _git(wt, "diff", "--cached", "--stat") + "\n" + _git(wt, "diff", "--cached")
+    d = _git(wt, "diff", "--cached", "--stat", base) + "\n" + _git(wt, "diff", "--cached", base)
     return d[:max_chars] + ("\n... [diff truncated]" if len(d) > max_chars else "")
 
 
-def changed_files(wt: Path) -> list[str]:
+def changed_files(wt: Path, base: str) -> list[str]:
     _git(wt, "add", "-A")
-    return [l for l in _git(wt, "diff", "--cached", "--name-only").splitlines() if l]
+    return [l for l in _git(wt, "diff", "--cached", "--name-only", base).splitlines() if l]
 
 
-def commit(wt: Path, message: str) -> str | None:
+def commit(wt: Path, message: str) -> str:
+    """Commit whatever is still uncommitted; returns the branch tip either way."""
     _git(wt, "add", "-A")
-    if not _git(wt, "diff", "--cached", "--name-only").strip():
-        return None
-    _git(wt, "-c", "user.email=evoloop@local", "-c", "user.name=evoloop", "commit", "-q", "-m", message)
+    if _git(wt, "diff", "--cached", "--name-only").strip():
+        _git(wt, "-c", "user.email=evoloop@local", "-c", "user.name=evoloop", "commit", "-q", "-m", message)
     return _git(wt, "rev-parse", "--short", "HEAD").strip()
 
 

@@ -28,8 +28,9 @@ class Ctx:
 
 
 def run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None = None,
-              from_cycle: str | None = None, pick: str | None = None) -> dict:
-    """One bounded cycle. `from_cycle` skips search and builds the winner (or opportunity `pick`) of a previous cycle."""
+              from_cycle: str | None = None, pick: str | None = None, regate_cycle: str | None = None) -> dict:
+    """One bounded cycle. `from_cycle` skips search and builds the winner (or opportunity `pick`) of a previous cycle.
+    `regate_cycle` re-runs verification/review/gate on a blocked cycle's existing branch."""
     mode = mode or cfg.mode
     state = State(repo)
     if not cfg.enabled or mode == Mode.OFF:
@@ -47,8 +48,16 @@ def run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None = N
     llm = Budgeted(provider, cfg.budget.max_model_calls, cfg.budget.max_tokens, cfg.models)
     ctx = Ctx(repo, cfg, state, llm, mode, cid, run_dir, pack, {"cycle": cid, "mode": mode.value, "provider": provider.name, "started": time.time()})
     try:
-        _resume(ctx, from_cycle, pick) if from_cycle else _search(ctx)
-        if ctx.result["decision"] == "BUILD":
+        if regate_cycle:
+            from .build import regate
+            prev = next((x for x in state.cycles(200) if x["id"] == regate_cycle), None)
+            if not prev or not prev.get("result") or prev["result"].get("status") != "blocked":
+                raise ValueError(f"{regate_cycle} is not a blocked cycle")
+            ctx.result["decision"] = "BUILD"
+            regate(ctx, prev["result"])
+        else:
+            _resume(ctx, from_cycle, pick) if from_cycle else _search(ctx)
+        if ctx.result["decision"] == "BUILD" and not regate_cycle:
             from .build import build
             build(ctx)
         _learn(ctx)

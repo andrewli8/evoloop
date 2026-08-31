@@ -130,3 +130,23 @@ def test_invalid_spec_blocks_before_coding(repo):
     assert r["status"] == "blocked" and "no usable spec" in r["stop_reason"]
     assert sum(1 for c in p.calls if c[0] == "spec") == 2 and not any(c[0] == "implement" for c in p.calls)
     assert not Path(r["worktree"]).exists()
+
+
+def test_coder_that_commits_on_branch_still_passes_gate(repo):
+    def impl_commit(instr, cwd):
+        impl_ok(instr, cwd)
+        subprocess.run(["git", "add", "-A"], cwd=cwd, check=True)
+        subprocess.run(["git", "-c", "user.email=a@b", "-c", "user.name=a", "commit", "-qm", "feat: x"], cwd=cwd, check=True)
+        return "committed"
+    r = run_cycle(repo, cfg(repo), MockProvider(implement_fn=impl_commit), Mode.BUILD)
+    assert r["status"] == "awaiting_human" and r["changed_files"] == ["src/feature.ts"] and r["commit"]
+
+
+def test_regate_blocked_cycle(repo):
+    p = MockProvider(implement_fn=impl_ok, script={"review": {"blocking": ["x"], "verdict": "block"}})
+    r = run_cycle(repo, cfg(repo, loops={"repair": 0}), p, Mode.BUILD)
+    assert r["status"] == "blocked" and Path(r["worktree"]).exists()
+    p2 = MockProvider()
+    r2 = run_cycle(repo, cfg(repo), p2, Mode.BUILD, regate_cycle=r["cycle"])
+    assert r2["regate_of"] == r["cycle"] and r2["status"] == "awaiting_human" and r2["gate"]["passed"]
+    assert r2["branch"] == r["branch"] and not any(c[0] in ("implement", "spec") for c in p2.calls)

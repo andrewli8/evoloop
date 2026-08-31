@@ -45,8 +45,8 @@ def build(c: Ctx) -> None:
     sha = freeze(contract, c.run_dir, c.state)
     r["contract"] = {**contract.model_dump(), "sha": sha}
     # 2. Isolation
-    wt, branch = gitops.create_worktree(c.repo, c.cycle_id)
-    r["branch"], r["worktree"] = branch, str(wt)
+    wt, branch, base = gitops.create_worktree(c.repo, c.cycle_id)
+    r["branch"], r["worktree"], r["base"] = branch, str(wt), base
     # 3. Baseline
     r["baseline"] = V.run_all(cfg.commands, wt)
     try:
@@ -71,22 +71,26 @@ def build(c: Ctx) -> None:
         gitops.remove_worktree(c.repo, wt, branch)
         return
     r["verification"] = {**res, "attempts": attempts}
-    r["changed_files"] = gitops.changed_files(wt)
     # 5. Independent review (separate context) — one more repair if it blocks and budget remains
-    review = _review(c, wt, spec)
+    review = _review(c, wt, base, spec)
     if review.get("verdict") == "block" and attempts <= cfg.loops.repair and review.get("blocking"):
         attempts += 1
         c.llm.implement(P.implement_instructions(spec, contract.canonical(), "Review blocked:\n" + "\n".join(review["blocking"])), wt)
         res = V.run_all(cfg.commands, wt, c.run_dir)
         r["verification"] = {**res, "attempts": attempts}
-        review = _review(c, wt, spec)
+        review = _review(c, wt, base, spec)
+    gate(c, wt, branch, base, res, review, contract.hypothesis)
+
+
+def gate(c: Ctx, wt, branch: str, base: str, res: dict, review: dict, hypothesis: str) -> None:
+    """Steps 6-7: stakeholder recheck of the implemented behaviour, then the delivery gate. Reused by `evoloop regate`."""
+    r, w = c.result, c.result["winner"]
     r["review"] = review
-    # 6. Stakeholder recheck against implemented behaviour (simulated, not customer validation)
+    r["changed_files"] = gitops.changed_files(wt, base)
     recheck = c.llm.json(Role.FAST, P.GENERATOR, P.p("stakeholder_recheck", P.RECHECK, {
         "problem": r["problem"]["title"], "stakeholders": [s.get("role") for s in r["stakeholders"]],
-        "winner": w["title"], "changed_files": r["changed_files"], "diff": gitops.diff(wt, 6000)}))
+        "winner": w["title"], "changed_files": r["changed_files"], "diff": gitops.diff(wt, base, 6000)}))
     r["recheck"] = recheck
-    # 7. Delivery gate: deterministic AND review AND recheck AND contract untouched
     contract_ok = verify_unchanged(c.run_dir, c.state, c.cycle_id)
     passed = res["ok"] and review.get("verdict") == "approve" and bool(recheck.get("still_solves_problem")) \
         and search._n(recheck.get("score"), 1) >= 3 and contract_ok and bool(r["changed_files"])
@@ -95,16 +99,37 @@ def build(c: Ctx) -> None:
     if not passed:
         r.update(status="blocked", implementation="left on branch for inspection", stop_reason="delivery gate failed")
         return
-    sha = gitops.commit(wt, f"evoloop: {w['title']}\n\ncycle {c.cycle_id}. Hypothesis: {contract.hypothesis[:300]}")
-    r["commit"] = sha
+    r["commit"] = gitops.commit(wt, f"evoloop: {w['title']}\n\ncycle {c.cycle_id}. Hypothesis: {hypothesis[:300]}")
     if c.mode == Mode.PR:
         r["pr"] = gitops.open_pr(wt, branch, f"evoloop: {w['title']}", _pr_body(c))
     r.update(status="awaiting_human", implementation="committed on branch",
              claim="passed engineering verification and simulated evaluation; recommended for real validation")
 
 
-def _review(c: Ctx, wt, spec) -> dict:
-    return c.llm.json(Role.REVIEW, P.CRITIC, P.p("review", P.REVIEW, {"spec": spec, "diff": gitops.diff(wt)}))
+def regate(c: Ctx, prev: dict) -> None:
+    """Re-run verification, review, recheck and gate on a blocked cycle's existing branch (no new coding call)."""
+    from pathlib import Path
+    wt, base = Path(prev["worktree"]), prev.get("base")
+    if not wt.exists() or not base:
+        raise ValueError("cycle has no worktree/base to regate")
+    c.result.update({k: prev[k] for k in ("problem", "stakeholders", "winner", "spec", "contract", "branch", "worktree", "base") if k in prev})
+    c.result["regate_of"] = prev["cycle"]
+    _reload_contract(c, prev)
+    res = V.run_all(c.cfg.commands, wt, c.run_dir)
+    c.result["verification"] = {**res, "attempts": 0}
+    gate(c, wt, prev["branch"], base, res, _review(c, wt, base, prev["spec"]), prev["contract"]["hypothesis"])
+
+
+def _reload_contract(c: Ctx, prev: dict) -> None:
+    """Freeze the previous cycle's contract under the new cycle id so the unchanged-check applies to it."""
+    data = {k: v for k, v in prev["contract"].items() if k != "sha"}
+    contract = EvaluationContract(**{**data, "cycle": c.cycle_id})
+    freeze(contract, c.run_dir, c.state)
+    c.result["contract"] = {**contract.model_dump(), "sha": contract.sha()}
+
+
+def _review(c: Ctx, wt, base: str, spec) -> dict:
+    return c.llm.json(Role.REVIEW, P.CRITIC, P.p("review", P.REVIEW, {"spec": spec, "diff": gitops.diff(wt, base)}))
 
 
 def _pr_body(c: Ctx) -> str:
