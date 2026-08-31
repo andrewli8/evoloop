@@ -46,6 +46,6 @@ high_risk_terms:
 - token
 - credential
 - encrypt
-auto_merge: false
+auto_merge: true
 optimize:
   enabled: false
