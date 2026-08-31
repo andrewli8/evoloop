@@ -17,7 +17,8 @@ def p(phase: str, body: str, inp: dict) -> str:
 
 def problem_search(n: int) -> str:
     return (f"From the project context, evidence and past lessons, list up to {n} distinct valuable PROBLEMS users of this "
-            "product appear to have (not features). Each must cite evidence ids; drop any problem with no evidence. "
+            "product appear to have NOW (not features). Each must cite evidence ids; drop any problem with no evidence. "
+            "A git_log fix commit shows a problem was addressed: cite it only when other evidence shows the problem persists. "
             'Schema: {"problems":[{"title","description","workflow","evidence_ids":[],"confidence":0-1}]}')
 
 

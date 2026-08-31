@@ -43,6 +43,7 @@ def scaffold(repo: Path, provider: str | None = None, force: bool = False, evide
     (d / ".gitignore").write_text(GITIGNORE)
     (d / "evidence").mkdir(exist_ok=True)
     (d / "evidence" / "README.md").write_text("Drop .md files here with observed evidence (support tickets, feedback, analytics notes), one item per line.\n"
+                                             "Describe what is wrong NOW; delete items once fixed, or they will be re-proposed.\n"
                                              "Prefix a line with [inferred] or [hypothetical] when it is not directly observed.\n")
     State(repo)
     return pack
