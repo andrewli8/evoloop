@@ -13,6 +13,7 @@ dependencies = [
 
 [project.scripts]
 evoloop = "evoloop.cli:app"
+evolveloop = "evoloop.cli:app"
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]

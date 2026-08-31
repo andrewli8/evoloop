@@ -1,0 +1,37 @@
+name: publish
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      # Dry run: workflow_dispatch on a branch builds and checks but never publishes.
+      - name: Check tag matches pyproject version
+        if: github.ref_type == 'tag'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python -c '
+          import os, sys, tomllib
+          version = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
+          tag = os.environ["TAG"].removeprefix("v")
+          if version != tag:
+              sys.exit(f"pyproject version {version} != tag {tag}")
+          '
+
+      - run: uv build
+      - run: uv run --with twine twine check dist/*
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        if: github.ref_type == 'tag'
