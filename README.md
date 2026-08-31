@@ -143,6 +143,8 @@ A typical analyze cycle is 8–10 model calls. Each run records calls, tokens, w
 
 ## Claims
 
+Each problem in a report carries its evidence classes, and the report says outright when a problem rests on repo-internal evidence only (code, commits, docs) with no user-behaviour tier behind it; user-impact language in such a cycle is inferred, not observed.
+
 Without a real metric EvolveLoop only ever claims a change *passed engineering verification*, *passed simulated evaluation*, and *is recommended for real validation*. Level-3 (real outcome) evidence enters only through `evoloop resolve --level 3`.
 
 ## Meta-loop (experimental, disabled)

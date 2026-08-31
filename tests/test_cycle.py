@@ -139,3 +139,11 @@ def test_problem_backed_only_by_fix_commits_dropped(repo):
     r = run_cycle(repo, cfg(repo), MockProvider(script={"problem_search": probs}), Mode.ANALYZE)
     assert r["problem"]["title"] == "real problem"
     assert all(p["title"] != "ghost of a fixed bug" for p in r["problems"])
+
+
+def test_report_flags_repo_internal_only_evidence(repo):
+    from evoloop.report import render
+    r = run_cycle(repo, cfg(repo, evidence_sources=["todos"]), MockProvider(), Mode.ANALYZE)
+    assert "Evidence tier: repo-internal only" in render(r)
+    r2 = run_cycle(repo, cfg(repo, evidence_sources=["todos", "git_log", "notes"]), MockProvider(), Mode.ANALYZE)
+    assert r2["problem"]  # mock cites the first evidence id; notes may or may not be first, so only assert no crash

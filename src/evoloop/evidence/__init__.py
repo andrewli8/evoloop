@@ -24,11 +24,17 @@ def todos(repo: Path, limit: int = 30) -> list[dict]:
         return []
     r = subprocess.run(["git", "grep", "-nIE", r"(TODO|FIXME|HACK|XXX)[:\s]"], cwd=repo, capture_output=True, text=True)
     out = []
-    for line in r.stdout.splitlines()[:limit]:
+    quoted = re.compile(r"""["'][^"']*\b(TODO|FIXME|HACK|XXX)""")
+    for line in r.stdout.splitlines():
         f, _, rest = line.partition(":")
         if any(part in SKIP_DIRS for part in Path(f).parts):
             continue
-        out.append(_ev("todos", "observed", rest.split(":", 1)[-1], f"{f}:{rest.split(':', 1)[0]}"))
+        text = rest.split(":", 1)[-1]
+        if quoted.search(text):
+            continue  # a marker inside a string literal (test fixtures, docs samples) is not a real TODO
+        out.append(_ev("todos", "observed", text, f"{f}:{rest.split(':', 1)[0]}"))
+        if len(out) >= limit:
+            break
     return out
 
 

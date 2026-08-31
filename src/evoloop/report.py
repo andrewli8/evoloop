@@ -11,6 +11,13 @@ def write(c) -> None:
     (c.run_dir / "report.md").write_text(render(r))
 
 
+BEHAVIOUR_SOURCES = {"issues", "notes", "external", "results", "smoke"}  # evidence that originates outside the code text
+
+
+def behaviour_tier(evidence: list[dict]) -> bool:
+    return any(e.get("source") in BEHAVIOUR_SOURCES or e.get("kind") == "external" for e in evidence)
+
+
 def render(r: dict) -> str:
     L = [f"# EvolveLoop cycle {r.get('cycle')} — {r.get('mode')} — decision: {r.get('decision')}", ""]
     if r.get("provider") == "mock":
@@ -20,7 +27,11 @@ def render(r: dict) -> str:
     p = r.get("problem")
     if p:
         L += ["## Problem", f"**{p['title']}** (workflow: {p.get('workflow')}, evidence score {p.get('evidence_score')})", ""]
-        L += ["### Supporting evidence"] + [f"- [{e['class']}] {e['source']} {e['ref']}: {e['text']}" for e in r.get("supporting_evidence", [])] + [""]
+        L += ["### Supporting evidence"] + [f"- [{e['class']}] {e['source']} {e['ref']}: {e['text']}" for e in r.get("supporting_evidence", [])]
+        if not behaviour_tier(r.get("supporting_evidence", [])):
+            L += ["", "> Evidence tier: repo-internal only (code, commits, docs). No user-behaviour evidence — issues, notes, external "
+                  "feeds, smoke runs or real outcomes — supports this problem, so any user-impact claim above is inferred."]
+        L += [""]
     if r.get("stakeholders"):
         L += ["## Stakeholders (simulated, inferred from repo)"] + [f"- **{s.get('role')}**: {s.get('goal')} — pain: {s.get('current_pain')}" for s in r["stakeholders"]] + [""]
     if r.get("branches"):

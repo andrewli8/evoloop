@@ -108,3 +108,11 @@ def test_collect_includes_churn_by_default_and_gates_on_config(tmp_path):
     assert any(e["source"] == "churn" for e in on)
     off = collect(repo, None, ["git_log", "churn"], cfg=Config(evidence={"churn_enabled": False}))
     assert not any(e["source"] == "churn" for e in off)
+
+
+def test_todo_inside_string_literal_is_not_evidence(tmp_path):
+    repo = make_repo(tmp_path / "t")
+    commit(repo, "feat: files", **{"real.py": "# TODO: real work here\nx = 1\n",
+                                    "fixture.py": 'SAMPLE = "// TODO: fake marker in a string"\n'})
+    refs = [e["ref"] for e in todos(repo)]
+    assert any(r.startswith("real.py") for r in refs) and not any(r.startswith("fixture.py") for r in refs)
