@@ -95,3 +95,14 @@ def test_dotted_module_names_stay_distinct():
     b = {"title": "y", "mechanism": "cache results", "surface": ["evoloop.cycle"]}
     kept, dropped = dedup([a, b], [])
     assert len(kept) == 2 and dropped == 0
+
+
+def test_ordinary_module_surfaces_do_not_escalate():
+    c = {"title": "Cycle summary screening section", "summary": "add a screening block to the report",
+         "mechanism": "communicate", "surface": ["src/evoloop/report.py", "src/evoloop/cli.py"]}
+    assert classify_candidate_risk(c, TERMS) == "low"
+
+
+def test_dangerous_domain_surfaces_still_escalate():
+    c = {"title": "Streamline flow", "summary": "tidy up", "mechanism": "simplify", "surface": ["src/app/auth/session.py"]}
+    assert classify_candidate_risk(c, TERMS) == "high"

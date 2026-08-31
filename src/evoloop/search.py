@@ -19,7 +19,9 @@ def jaccard(a: str, b: str) -> float:
 
 _MECH_STOP = {"a", "an", "the", "to", "for", "of", "on", "in", "with", "by"}
 _RISKY_MECH_STEMS = ("delet", "migrat", "schema", "concurren", "auth", "retr", "timeout", "drop")
-_SENSITIVE_SURFACES = ("config", "gitops", "cli", "budget")
+# Domains that are dangerous anywhere, not repo-structure words: "cli"/"config" are ordinary module
+# names in most repos (including this one) and blanket-fired on every candidate (observed cycle 2ae3).
+_SENSITIVE_SURFACES = ("auth", "billing", "payment", "secret", "credential", "migration", "checkout", "session")
 
 
 def _stem(w: str) -> str:
