@@ -1,0 +1,51 @@
+enabled: true
+mode: analyze
+provider: claude-cli
+models: {}
+search:
+  max_problems: 5
+  deep_problems: 2
+  branches: 5
+  candidates_per_branch: 2
+  opportunities: 5
+  finalists: 3
+  stakeholder_roles: 4
+loops:
+  refinement: 1
+  repair: 2
+budget:
+  max_model_calls: 40
+  max_tokens: 300000
+commands:
+  build: null
+  test: uv run pytest -q
+  lint: null
+  typecheck: null
+evidence_sources:
+- todos
+- git_log
+- issues
+- docs
+- notes
+- results
+high_risk_terms:
+- auth
+- login
+- password
+- session
+- permission
+- billing
+- payment
+- stripe
+- invoice
+- delete
+- drop
+- migration
+- pii
+- secret
+- token
+- credential
+- encrypt
+auto_merge: false
+optimize:
+  enabled: false

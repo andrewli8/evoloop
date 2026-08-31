@@ -1,0 +1,5 @@
+state.sqlite
+state.sqlite-*
+runs/
+worktrees/
+optimize/

@@ -1,0 +1,101 @@
+{
+ "git_head": "0bd1fcc10dfcea794699b86da72e7ef137e7e699",
+ "workspaces": {
+  "value": [],
+  "status": "unknown"
+ },
+ "languages": {
+  "value": [
+   "python"
+  ],
+  "status": "observed"
+ },
+ "package_manager": {
+  "value": [
+   "uv"
+  ],
+  "status": "observed"
+ },
+ "manifests": {
+  "value": [
+   "pyproject.toml"
+  ],
+  "status": "observed"
+ },
+ "directories": {
+  "value": [
+   "hooks",
+   "skills",
+   "src",
+   "tests"
+  ],
+  "status": "observed"
+ },
+ "capabilities": {
+  "value": [
+   "tests"
+  ],
+  "status": "inferred"
+ },
+ "ci": {
+  "value": [],
+  "status": "unknown"
+ },
+ "commands": {
+  "value": {
+   "build": null,
+   "test": "uv run pytest -q",
+   "lint": null,
+   "typecheck": null
+  },
+  "status": "inferred"
+ },
+ "entities": {
+  "value": [
+   "Search",
+   "Loops",
+   "Budget",
+   "Commands",
+   "Optimize",
+   "Config",
+   "EvaluationContract"
+  ],
+  "status": "inferred"
+ },
+ "roles": {
+  "value": [
+   "agent"
+  ],
+  "status": "inferred"
+ },
+ "workflows": {
+  "value": [
+   "EvolveLoop",
+   "Quick start",
+   "Inside your coding agent (session mode)",
+   "Providers",
+   "What one cycle does",
+   "Bounds and budget (config.yaml)",
+   "Claims",
+   "Meta-loop (experimental, disabled)",
+   "Development"
+  ],
+  "status": "inferred"
+ },
+ "agent_instructions": {
+  "value": [],
+  "status": "unknown"
+ },
+ "documentation": {
+  "value": {
+   "readme": true,
+   "docs_dir": false
+  },
+  "status": "observed"
+ },
+ "architecture": {
+  "value": null,
+  "status": "unknown"
+ },
+ "changed_since_scan": []
+}
