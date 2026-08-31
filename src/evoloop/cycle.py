@@ -1,0 +1,225 @@
+"""runCycle(): one finite, bounded product-improvement cycle. Every path terminates."""
+from __future__ import annotations
+
+import json
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from . import evidence as ev_mod
+from . import prompts as P
+from . import scan, search
+from .config import EVO_DIR, Config, Mode
+from .providers import Budgeted, BudgetExceeded, Provider, Role
+from .state import State
+
+
+@dataclass
+class Ctx:
+    repo: Path
+    cfg: Config
+    state: State
+    llm: Budgeted
+    mode: Mode
+    cycle_id: str
+    run_dir: Path
+    pack: dict
+    result: dict = field(default_factory=dict)
+
+
+def run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None = None) -> dict:
+    mode = mode or cfg.mode
+    state = State(repo)
+    if not cfg.enabled or mode == Mode.OFF:
+        return {"status": "disabled", "decision": "STOP", "stop_reason": "evoloop is disabled (no model calls made)", "usage": {"model_calls": 0}}
+    if state.awaiting():
+        ids = [c["id"] for c in state.awaiting()]
+        return {"status": "paused", "decision": "STOP", "stop_reason": f"awaiting human resolution of {ids}; run `evoloop resolve <id>`",
+                "usage": {"model_calls": 0}}
+    state.acquire()
+    cid = state.start_cycle()
+    run_dir = repo / EVO_DIR / "runs" / cid
+    run_dir.mkdir(parents=True, exist_ok=True)
+    pack = scan.refresh(repo, scan.load_pack(repo))
+    scan.save_pack(repo, pack)
+    llm = Budgeted(provider, cfg.budget.max_model_calls, cfg.budget.max_tokens, cfg.models)
+    ctx = Ctx(repo, cfg, state, llm, mode, cid, run_dir, pack, {"cycle": cid, "mode": mode.value, "started": time.time()})
+    try:
+        _search(ctx)
+        if ctx.result["decision"] == "BUILD":
+            from .build import build
+            build(ctx)
+        _learn(ctx)
+        status = ctx.result.setdefault("status", "done")
+    except BudgetExceeded as e:
+        ctx.result.update(decision="STOP", stop_reason=f"budget exhausted: {e}", status="budget_exhausted")
+        status = "budget_exhausted"
+    except Exception as e:  # cycle must terminate and leave a report
+        ctx.result.update(decision="STOP", stop_reason=f"error: {type(e).__name__}: {e}", status="error")
+        status = "error"
+    finally:
+        ctx.result["usage"] = {**llm.usage.as_dict(), "wall_seconds": round(time.time() - ctx.result["started"], 1)}
+        from .report import write
+        write(ctx)
+        state.finish_cycle(cid, status, ctx.result)
+        state.release()
+    return ctx.result
+
+
+# --- search half of the cycle ---------------------------------------------------------------
+
+def _search(c: Ctx) -> None:
+    s, r, llm = c.cfg.search, c.result, c.llm
+    # OBSERVE (deterministic)
+    evidence = ev_mod.collect(c.repo, c.state, c.cfg.evidence_sources)
+    r["evidence_count"] = {k: sum(1 for e in evidence if e["class"] == k) for k in ev_mod.CLASSES}
+    if not evidence:
+        r.update(decision="STOP", stop_reason="insufficient evidence: no evidence sources produced anything", problem=None)
+        return
+    context = scan.summary(c.pack)
+    lessons = c.state.nodes("Lesson", 50)
+    # PROBLEM SEARCH (AI, fast)
+    out = llm.json(Role.FAST, P.GENERATOR, P.p("problem_search", P.problem_search(s.max_problems), {
+        "context": context, "evidence": evidence[:40], "past_lessons": [l.get("reusable_implication") for l in lessons[:5]],
+        "already_known_problems": [p["title"] for p in c.state.nodes("Problem", 20)]}))
+    problems = search.select_problem(_list(out, "problems")[: s.max_problems], evidence)
+    r["problems"] = [{k: p.get(k) for k in ("title", "workflow", "evidence_ids", "evidence_score")} for p in problems]
+    if not problems:
+        r.update(decision="STOP", stop_reason="insufficient evidence: no problem is supported by evidence", problem=None)
+        return
+    # PROBLEM SELECTION (deterministic; deep_problems bounds how many we keep in memory)
+    for p in problems[: s.deep_problems]:
+        pid = c.state.add("Problem", p, c.cycle_id)
+        for eid in p["evidence_ids"]:
+            e = next(e for e in evidence if e["id"] == eid)
+            c.state.link(pid, "supported_by", c.state.add("Evidence", e, c.cycle_id))
+        p["node_id"] = pid
+    problem = problems[0]
+    r["problem"] = problem
+    r["supporting_evidence"] = [e for e in evidence if e["id"] in problem["evidence_ids"]]
+    r["lessons_used"] = search.relevant(lessons, problem["title"] + " " + problem.get("workflow", ""), ("problem", "workflow", "mechanism"), 3)
+    # STAKEHOLDER SYNTHESIS (AI, fast)
+    roles = _list(llm.json(Role.FAST, P.GENERATOR, P.p("stakeholders", P.stakeholders(s.stakeholder_roles),
+                                                        {"context": context, "problem": problem})), "roles")[: s.stakeholder_roles]
+    r["stakeholders"] = roles
+    # SOLUTION BRANCHING (AI, reasoning) + DEDUP (deterministic)
+    prior = c.state.nodes("Intervention", 200)
+    prior_titles = [i["title"] for i in search.relevant(prior, problem["title"], ("problem",), 30)]
+    cands = _branch(c, problem, roles, prior_titles, r["lessons_used"], missing=None)
+    cands, dropped = search.dedup(cands, prior_titles)
+    r["dedup_dropped"] = dropped
+    for i, cnd in enumerate(cands):
+        cnd["id"] = f"c{i+1}"
+    # CHEAP TOURNAMENT (AI fast scoring, deterministic ranking)
+    ranked = _cheap(c, cands, problem)
+    opportunities = ranked[: s.opportunities]
+    # diversity guard: at most `loops.refinement` extra branch passes, only if too homogeneous or all weak
+    for _ in range(c.cfg.loops.refinement):
+        weak = all(o["cheap_score"] < 2 for o in opportunities)
+        homogeneous = len(search.mechanisms(opportunities)) < min(3, len(opportunities))
+        if not (weak or homogeneous):
+            break
+        missing = [m for m in ["remove the problem", "simplify", "automate", "guide", "validate", "change workflow", "no-software/process"]
+                   if m not in search.mechanisms(cands)]
+        extra, _ = search.dedup(_branch(c, problem, roles, prior_titles + [x["title"] for x in cands], r["lessons_used"], missing), prior_titles)
+        for j, e in enumerate(extra):
+            e["id"] = f"c{len(cands)+j+1}"
+        cands += extra
+        ranked = _cheap(c, cands, problem)
+        opportunities = ranked[: s.opportunities]
+        r["refinement_used"] = True
+    r["raw_candidates"] = len(cands)
+    r["branches"] = sorted(search.mechanisms(cands))
+    r["opportunities"] = opportunities
+    for o in opportunities:  # archive good non-winners so later cycles don't regenerate them
+        o["node_id"] = c.state.add("Intervention", {**o, "problem": problem["title"]}, c.cycle_id)
+        c.state.link(o["node_id"], "addresses", problem["node_id"])
+    # FINALIST EVALUATION (AI fast, one call per stakeholder role)
+    finalists = opportunities[: s.finalists]
+    evals = {f["id"]: [] for f in finalists}
+    for role in roles:
+        out = _list(llm.json(Role.FAST, P.GENERATOR, P.p("stakeholder_eval", P.STAKEHOLDER_EVAL,
+                                                          {"role": role, "problem": problem["title"], "finalists": finalists})), "evaluations")
+        for e in out:
+            if e.get("id") in evals:
+                evals[e["id"]].append({"role": role.get("role"), **e})
+    # ADVERSARIAL REVIEW (AI reasoning, critic context)
+    reviews = {rv.get("id"): rv for rv in _list(llm.json(Role.REASONING, P.CRITIC, P.p("adversarial", P.ADVERSARIAL,
+                                                       {"problem": problem, "finalists": finalists, "stakeholders": roles})), "reviews")}
+    for f in finalists:
+        sc = [search._n(e.get("score"), 3) for e in evals[f["id"]]]
+        f["stakeholder_score"] = round(sum(sc) / len(sc), 2) if sc else None
+        f["stakeholder_evals"] = evals[f["id"]]
+        f["adversarial"] = reviews.get(f["id"], {})
+    r["finalists"] = finalists
+    _decide(c, finalists)
+
+
+def _branch(c: Ctx, problem, roles, prior_titles, lessons, missing) -> list[dict]:
+    s = c.cfg.search
+    out = c.llm.json(Role.REASONING, P.GENERATOR, P.p("branches", P.branches(s.branches, s.candidates_per_branch), {
+        "context": scan.summary(c.pack), "problem": problem, "stakeholders": [x.get("role") for x in roles],
+        "already_explored": prior_titles[:30], "lessons": lessons, "missing_mechanisms": missing}))
+    cands = []
+    # the mandatory "no software" branch survives truncation
+    branches = sorted(_list(out, "branches"), key=lambda b: not any(x.get("software_required") is False for x in (b.get("candidates") or [])))
+    for b in branches[: s.branches]:
+        for cnd in (b.get("candidates") or [])[: s.candidates_per_branch]:
+            if cnd.get("title"):
+                cands.append({**cnd, "mechanism": cnd.get("mechanism") or b.get("mechanism", "")})
+    return cands
+
+
+def _cheap(c: Ctx, cands, problem) -> list[dict]:
+    if not cands:
+        return []
+    out = c.llm.json(Role.FAST, P.GENERATOR, P.p("cheap_scores", P.CHEAP_SCORES, {"problem": problem["title"], "candidates": cands}))
+    return search.cheap_rank(cands, _list(out, "scores"))
+
+
+def _decide(c: Ctx, finalists: list[dict]) -> None:
+    from .contract import classify_risk
+    r = c.result
+    viable = [f for f in finalists if not f["adversarial"].get("fatal") and f["adversarial"].get("verdict") != "reject"
+              and (f["stakeholder_score"] or 0) >= 3.0]
+    if not viable:
+        r.update(decision="STOP", winner=None, stop_reason="no finalist survived stakeholder and adversarial evaluation")
+        return
+    w = max(viable, key=lambda f: (f["stakeholder_score"], f["cheap_score"]))
+    w["risk"] = classify_risk(w["title"] + " " + w.get("summary", ""), c.cfg.high_risk_terms)
+    r["winner"] = w
+    if not w.get("software_required", True):
+        r.update(decision="RECOMMEND", stop_reason="winner is a process/policy change; nothing to build")
+    elif c.mode in (Mode.ANALYZE, Mode.PLAN):
+        r.update(decision="RECOMMEND", stop_reason=f"mode={c.mode.value}: recommendation only")
+    elif w["risk"] == "high":
+        r.update(decision="RECOMMEND", stop_reason="high-risk area (security/billing/data): human gated")
+    else:
+        r["decision"] = "BUILD"
+    if c.mode == Mode.PLAN and r["decision"] == "RECOMMEND":
+        from .build import write_spec
+        write_spec(c, w)
+
+
+def _learn(c: Ctx) -> None:
+    r = c.result
+    if not r.get("problem"):
+        return
+    w = r.get("winner") or {}
+    out = c.llm.json(Role.FAST, P.GENERATOR, P.p("lesson", P.LESSON, {
+        "problem": r["problem"]["title"], "decision": r["decision"], "winner": w.get("title"), "stop_reason": r.get("stop_reason"),
+        "verification": r.get("verification", {}).get("ok"), "review": r.get("review", {}).get("verdict")}))
+    lesson = {"problem": r["problem"]["title"], "workflow": r["problem"].get("workflow"), "mechanism": w.get("mechanism"),
+              "prediction": (w.get("summary") or "")[:200], "observed_result": r.get("status", r["decision"]),
+              "what_worked": out.get("what_worked"), "what_failed": out.get("what_failed"),
+              "confidence": out.get("confidence", 0.5), "reusable_implication": out.get("reusable_implication")}
+    r["lesson"] = lesson
+    lid = c.state.add("Lesson", lesson, c.cycle_id)
+    if w.get("node_id"):
+        c.state.link(lid, "about", w["node_id"])
+    r.setdefault("status", "done")
+
+
+def _list(out, key: str) -> list:
+    v = out.get(key) if isinstance(out, dict) else out
+    return [x for x in (v or []) if isinstance(x, dict)]
