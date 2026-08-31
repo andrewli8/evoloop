@@ -11,8 +11,10 @@ EvolveLoop uses AI for search and judgment, ordinary software for control and ve
 ## Install and run
 
 ```bash
+uv tool install evolveloop       # PyPI name is evolveloop; the command is `evoloop`
+# or, from a checkout: uv tool install /path/to/evoloop
 cd your-repo
-uvx evoloop init                 # inspects the repo, writes .evoloop/
+evoloop init                     # inspects the repo, writes .evoloop/
 evoloop analyze                  # one cycle, recommendation only (default mode)
 evoloop run --mode plan          # + implementation spec
 evoloop run --mode build         # + isolated branch, implementation, verification

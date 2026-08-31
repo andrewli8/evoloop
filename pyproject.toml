@@ -1,5 +1,5 @@
 [project]
-name = "evoloop"
+name = "evolveloop"
 version = "0.1.0"
 description = "Bounded, evidence-driven product improvement loop for any git repository"
 readme = "README.md"
