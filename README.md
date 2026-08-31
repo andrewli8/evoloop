@@ -31,6 +31,7 @@ evoloop analyze       # one cycle: problem -> opportunities -> finalists -> reco
 
    ```sh
    linear issues list --json | evoloop analyze --evidence-json -
+   evoloop analyze --evidence-json "cmd:posthog query --sql \"select event, count() from events where event like '%error%' group by event\" --json"
    evoloop run --evidence-json feedback.json --evidence-json "cmd:curl -s https://example.com/api/tickets"
    ```
 
