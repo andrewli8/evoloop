@@ -61,7 +61,8 @@ def init(provider: str = typer.Option(None, help="claude-cli | codex-cli | anthr
     typer.echo(f"  - provider: {prov}" + ("  (WARNING: mock returns placeholder output; install `claude` or `codex`, or set ANTHROPIC_API_KEY)" if prov == "mock" else ""))
 
 
-def _cycle(mode: Mode | None, provider: str | None, from_cycle: str | None = None, pick: str | None = None, regate_cycle: str | None = None):
+def _cycle(mode: Mode | None, provider: str | None, from_cycle: str | None = None, pick: str | None = None,
+           regate_cycle: str | None = None, evidence_json: list[str] | None = None):
     repo = _repo()
     cfg = Config.load(repo)
     if not cfg.enabled or (mode or cfg.mode) == Mode.OFF:
@@ -75,7 +76,7 @@ def _cycle(mode: Mode | None, provider: str | None, from_cycle: str | None = Non
     if name == "mock":
         typer.echo("WARNING: provider=mock — output is placeholder text for testing, not analysis. Set provider in .evoloop/config.yaml.", err=True)
     try:
-        r = run_cycle(repo, cfg, make_provider(name, cfg.models), mode, from_cycle, pick, regate_cycle)
+        r = run_cycle(repo, cfg, make_provider(name, cfg.models), mode, from_cycle, pick, regate_cycle, evidence_json=evidence_json)
     except LockedError as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(3)
@@ -88,17 +89,21 @@ def _cycle(mode: Mode | None, provider: str | None, from_cycle: str | None = Non
     typer.echo(f"usage: {r.get('usage')}")
 
 
+def _evidence_opt():  # a fresh OptionInfo per command; Typer does not like one instance shared across commands
+    return typer.Option(None, "--evidence-json", help="extra JSON evidence: file path, `-` for stdin, or `cmd:<shell>` (repeatable)")
+
+
 @app.command()
-def analyze(provider: str = typer.Option(None)):
+def analyze(provider: str = typer.Option(None), evidence_json: list[str] = _evidence_opt()):
     """Run one cycle in ANALYZE mode: recommend 0-1 intervention, change no code."""
-    _cycle(Mode.ANALYZE, provider)
+    _cycle(Mode.ANALYZE, provider, evidence_json=evidence_json)
 
 
 @app.command()
 def run(mode: Mode = typer.Option(None, help="analyze | plan | build | pr (default: config mode)"),
-        provider: str = typer.Option(None)):
+        provider: str = typer.Option(None), evidence_json: list[str] = _evidence_opt()):
     """Run one bounded cycle. Continuous use = a scheduler calling this repeatedly."""
-    _cycle(mode, provider)
+    _cycle(mode, provider, evidence_json=evidence_json)
 
 
 @app.command()

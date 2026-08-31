@@ -25,12 +25,15 @@ class Ctx:
     run_dir: Path
     pack: dict
     result: dict = field(default_factory=dict)
+    evidence_exec: list[str] = field(default_factory=list)  # --evidence-json specs; may contain cmd: (human-typed)
 
 
 def run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None = None,
-              from_cycle: str | None = None, pick: str | None = None, regate_cycle: str | None = None) -> dict:
+              from_cycle: str | None = None, pick: str | None = None, regate_cycle: str | None = None,
+              evidence_json: list[str] | None = None) -> dict:
     """One bounded cycle. `from_cycle` skips search and builds the winner (or opportunity `pick`) of a previous cycle.
-    `regate_cycle` re-runs verification/review/gate on a blocked cycle's existing branch."""
+    `regate_cycle` re-runs verification/review/gate on a blocked cycle's existing branch.
+    `evidence_json`: extra JSON evidence specs typed by the human (`cmd:` allowed there, never from config)."""
     mode = mode or cfg.mode
     state = State(repo)
     if not cfg.enabled or mode == Mode.OFF:
@@ -46,7 +49,8 @@ def run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None = N
     pack = scan.refresh(repo, scan.load_pack(repo))
     scan.save_pack(repo, pack)
     llm = Budgeted(provider, cfg.budget.max_model_calls, cfg.budget.max_tokens, cfg.models)
-    ctx = Ctx(repo, cfg, state, llm, mode, cid, run_dir, pack, {"cycle": cid, "mode": mode.value, "provider": provider.name, "started": time.time()})
+    ctx = Ctx(repo, cfg, state, llm, mode, cid, run_dir, pack, {"cycle": cid, "mode": mode.value, "provider": provider.name, "started": time.time()},
+              list(evidence_json or []))
     try:
         if regate_cycle:
             from .build import regate
@@ -98,7 +102,7 @@ def _resume(c: Ctx, from_cycle: str, pick: str | None) -> None:
 def _search(c: Ctx) -> None:
     s, r, llm = c.cfg.search, c.result, c.llm
     # OBSERVE (deterministic)
-    evidence = ev_mod.collect(c.repo, c.state, c.cfg.evidence_sources)
+    evidence = ev_mod.collect(c.repo, c.state, c.cfg.evidence_sources, c.cfg.evidence.external, c.evidence_exec)
     r["evidence_count"] = {k: sum(1 for e in evidence if e["class"] == k) for k in ev_mod.CLASSES}
     if not evidence:
         r.update(decision="STOP", stop_reason="insufficient evidence: no evidence sources produced anything", problem=None)
