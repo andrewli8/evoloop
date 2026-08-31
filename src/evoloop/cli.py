@@ -7,6 +7,7 @@ from pathlib import Path
 import typer
 
 from . import __version__, gitops, scan, skill as skill_mod
+from .commands import verification_strength
 from .config import EVO_DIR, Config, Mode
 from .providers import detect_provider, make_provider
 from .state import LockedError, State
@@ -57,6 +58,7 @@ def init(provider: str = typer.Option(None, help="claude-cli | codex-cli | anthr
     pack = scaffold(repo, provider, force)
     typer.echo(f"Initialized {EVO_DIR}/\n")
     typer.echo(scan.describe(pack))
+    typer.echo("\n" + "\n".join(verification_strength(pack["commands"]["value"], pack["languages"]["value"] or [])[1]))
     prov = Config.load(repo).provider
     typer.echo(f"  - provider: {prov}" + ("  (WARNING: mock returns placeholder output; install `claude` or `codex`, or set ANTHROPIC_API_KEY)" if prov == "mock" else ""))
 
