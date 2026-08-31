@@ -52,17 +52,24 @@ class Provider:
 class Budgeted:
     """Wraps a provider: counts usage, enforces hard budget, parses JSON replies."""
 
-    def __init__(self, provider: Provider, max_calls: int, max_tokens: int, models: dict[str, str] | None = None):
-        self.p, self.max_calls, self.max_tokens = provider, max_calls, max_tokens
+    def __init__(self, provider: Provider, max_calls: int, max_tokens: int, models: dict[str, str] | None = None,
+                 max_seconds: int | None = None):
+        self.p, self.max_calls, self.max_tokens, self.max_seconds = provider, max_calls, max_tokens, max_seconds
+        self.started = time.time()
         self.usage = Usage()
         self.models = models or {}
         self.calls: list[dict] = []  # per-call audit trail, written to runs/<cycle>/calls.jsonl
 
-    def text(self, role: Role, system: str, prompt: str) -> str:
+    def _check(self) -> None:
         if self.usage.calls >= self.max_calls:
             raise BudgetExceeded(f"model call budget {self.max_calls} reached")
         if self.usage.input_tokens + self.usage.output_tokens >= self.max_tokens:
             raise BudgetExceeded(f"token budget {self.max_tokens} reached")
+        if self.max_seconds is not None and time.time() - self.started >= self.max_seconds:
+            raise BudgetExceeded(f"wall-clock budget {self.max_seconds}s reached")
+
+    def text(self, role: Role, system: str, prompt: str) -> str:
+        self._check()
         t = time.time()
         out, i, o, *rest = self.p.complete(role, system, prompt)
         m = re.match(r"\[phase:(\w+)\]", prompt)
@@ -85,8 +92,7 @@ class Budgeted:
             return parse_json(out)
 
     def implement(self, instructions: str, cwd: Path) -> str:
-        if self.usage.calls >= self.max_calls:
-            raise BudgetExceeded("model call budget reached")
+        self._check()
         self.usage.calls += 1
         self.usage.by_role["coding"] = self.usage.by_role.get("coding", 0) + 1
         return self.p.implement(instructions, cwd)

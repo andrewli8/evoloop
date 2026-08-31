@@ -48,7 +48,7 @@ def run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None = N
     run_dir.mkdir(parents=True, exist_ok=True)
     pack = scan.refresh(repo, scan.load_pack(repo))
     scan.save_pack(repo, pack)
-    llm = Budgeted(provider, cfg.budget.max_model_calls, cfg.budget.max_tokens, cfg.models)
+    llm = Budgeted(provider, cfg.budget.max_model_calls, cfg.budget.max_tokens, cfg.models, cfg.budget.max_seconds)
     ctx = Ctx(repo, cfg, state, llm, mode, cid, run_dir, pack, {"cycle": cid, "mode": mode.value, "provider": provider.name, "started": time.time()},
               list(evidence_json or []))
     try:

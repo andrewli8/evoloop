@@ -147,3 +147,13 @@ def test_report_flags_repo_internal_only_evidence(repo):
     assert "Evidence tier: repo-internal only" in render(r)
     r2 = run_cycle(repo, cfg(repo, evidence_sources=["todos", "git_log", "notes"]), MockProvider(), Mode.ANALYZE)
     assert r2["problem"]  # mock cites the first evidence id; notes may or may not be first, so only assert no crash
+
+
+def test_wall_clock_budget_enforced_without_token_telemetry(repo):
+    class Untelemetered(MockProvider):
+        def complete(self, role, system, prompt):
+            out, _, _ = super().complete(role, system, prompt)
+            return out, 0, 0  # like codex-cli: no token counts
+    p = Untelemetered()
+    r = run_cycle(repo, cfg(repo, budget={"max_model_calls": 40, "max_tokens": 10**9, "max_seconds": 0}), p, Mode.ANALYZE)
+    assert r["status"] == "budget_exhausted" and "wall-clock" in r["stop_reason"] and p.calls == []

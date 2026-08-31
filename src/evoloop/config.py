@@ -43,6 +43,7 @@ class Loops(BaseModel):
 class Budget(BaseModel):
     max_model_calls: int = 40
     max_tokens: int = 300_000
+    max_seconds: int = 1800  # wall-clock cap per cycle; the only bound that works when a provider reports no tokens
 
 
 class Commands(BaseModel):
