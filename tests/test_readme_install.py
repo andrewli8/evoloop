@@ -12,8 +12,11 @@ def test_install_is_uv_tool_install_from_git():
     assert "uv tool install git+" in README
 
 
-def test_no_uvx_remains():
-    assert "uvx" not in README
+def test_uvx_mentions_use_the_real_dist_name():
+    # `uvx evoloop` runs a stranger's package (name taken on PyPI). `uvx evolveloop` is fine once released.
+    for line in README.splitlines():
+        if "uvx" in line:
+            assert "uvx evolveloop" in line
 
 
 def test_readme_cli_name_matches_project_scripts():
