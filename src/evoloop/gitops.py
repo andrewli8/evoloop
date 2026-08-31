@@ -62,7 +62,9 @@ def remove_worktree(repo: Path, wt: Path, branch: str | None = None) -> None:
 
 
 def clean(repo: Path) -> bool:
-    return not _git(repo, "status", "--porcelain", "--untracked-files=no").strip()
+    """No uncommitted tracked changes outside .evoloop/ (the context pack is rewritten by every cycle)."""
+    lines = _git(repo, "status", "--porcelain", "--untracked-files=no").splitlines()
+    return not [l for l in lines if l and not l[3:].startswith(EVO_DIR + "/")]
 
 
 def merge(repo: Path, branch: str, message: str) -> str:

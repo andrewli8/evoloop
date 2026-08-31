@@ -184,3 +184,13 @@ def test_build_falls_through_process_winner_to_code(repo):
     r = run_cycle(repo, cfg(repo), MockProvider(implement_fn=impl_ok), Mode.BUILD, from_cycle=a["cycle"])
     assert r["winner"]["title"] == "Automate the check" and r["process_recommendation"] == "Write a runbook"
     assert r["status"] == "awaiting_human"
+
+
+def test_auto_merge_ignores_dirty_context_pack(repo):
+    pack = repo / ".evoloop" / "project.json"  # tracked in real repos; rewritten by every cycle
+    subprocess.run(["git", "add", "-f", str(pack)], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "track pack"], cwd=repo, check=True)
+    pack.write_text(pack.read_text().replace('"changed_since_scan": []', '"changed_since_scan": ["x"]'))
+    assert subprocess.run(["git", "status", "--porcelain"], cwd=repo, capture_output=True, text=True).stdout.strip()
+    r = run_cycle(repo, cfg(repo, auto_merge=True), MockProvider(implement_fn=impl_ok), Mode.BUILD)
+    assert r["status"] == "merged", r.get("auto_merge")
