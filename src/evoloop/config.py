@@ -65,6 +65,8 @@ class Smoke(BaseModel):
 
 class Evidence(BaseModel):
     external: list[str] = Field(default_factory=list)  # JSON evidence files (or `-`); `cmd:` is refused here, CLI flag only
+    churn_enabled: bool = True  # git churn / revert / fix-follow-fix hotspot mining
+    churn_window_days: int = 90
 
 
 class Config(BaseModel):
@@ -76,7 +78,7 @@ class Config(BaseModel):
     loops: Loops = Loops()
     budget: Budget = Budget()
     commands: Commands = Commands()
-    evidence_sources: list[str] = Field(default_factory=lambda: ["todos", "git_log", "issues", "docs", "notes", "results"])
+    evidence_sources: list[str] = Field(default_factory=lambda: ["todos", "git_log", "issues", "docs", "notes", "results", "churn"])
     evidence: Evidence = Evidence()
     high_risk_terms: list[str] = Field(default_factory=lambda: list(HIGH_RISK_TERMS))
     auto_merge: bool = False  # never flipped by the tool itself
