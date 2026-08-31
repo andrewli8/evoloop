@@ -128,3 +128,14 @@ def test_paused_while_awaiting_human(repo):
     p = MockProvider()
     r = run_cycle(repo, cfg(repo), p, Mode.ANALYZE)
     assert r["status"] == "paused" and p.calls == []
+
+
+def test_problem_backed_only_by_fix_commits_dropped(repo):
+    def probs(inp):
+        fixes = [e["id"] for e in inp["evidence"] if e["source"] == "git_log"]
+        other = [e["id"] for e in inp["evidence"] if e["source"] != "git_log"][:1]
+        return {"problems": [{"title": "ghost of a fixed bug", "evidence_ids": fixes, "confidence": 0.9},
+                             {"title": "real problem", "evidence_ids": other + fixes[:1], "confidence": 0.5}]}
+    r = run_cycle(repo, cfg(repo), MockProvider(script={"problem_search": probs}), Mode.ANALYZE)
+    assert r["problem"]["title"] == "real problem"
+    assert all(p["title"] != "ghost of a fixed bug" for p in r["problems"])

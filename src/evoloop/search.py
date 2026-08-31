@@ -58,6 +58,8 @@ def select_problem(problems: list[dict], evidence: list[dict]) -> list[dict]:
         ids = [i for i in p.get("evidence_ids", []) if i in ev]
         if not ids:
             continue
+        if all(ev[i]["source"] == "git_log" for i in ids):
+            continue  # fix commits alone show a problem was addressed, not that it persists
         score = sum(rank[ev[i]["class"]] for i in ids) + float(p.get("confidence", 0.5) or 0)
         scored.append({**p, "evidence_ids": ids, "evidence_score": round(score, 2)})
     return sorted(scored, key=lambda p: -p["evidence_score"])
