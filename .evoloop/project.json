@@ -1,5 +1,5 @@
 {
- "git_head": "7f09c0b93302203e425fc885c75a8dff8992e0cf",
+ "git_head": "106f6ed07c0b8656914af45466e0cfadad6d9e5b",
  "workspaces": {
   "value": [],
   "status": "unknown"
@@ -117,6 +117,8 @@
   "src/evoloop/search.py",
   "src/evoloop/smoke.py",
   "tests/test_search_structured_compare.py",
-  "tests/test_smoke.py"
+  "tests/test_smoke.py",
+  "src/evoloop/search.py",
+  "tests/test_search_structured_compare.py"
  ]
 }
