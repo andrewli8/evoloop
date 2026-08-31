@@ -1,4 +1,4 @@
-"""Git isolation: one worktree + branch per cycle. Never merges, never pushes to main."""
+"""Git isolation: one worktree + branch per cycle. Merges only when the human set auto_merge; never pushes."""
 from __future__ import annotations
 
 import subprocess
@@ -59,6 +59,21 @@ def remove_worktree(repo: Path, wt: Path, branch: str | None = None) -> None:
     _git(repo, "worktree", "remove", "--force", str(wt), check=False)
     if branch:
         _git(repo, "branch", "-D", branch, check=False)
+
+
+def clean(repo: Path) -> bool:
+    return not _git(repo, "status", "--porcelain", "--untracked-files=no").strip()
+
+
+def merge(repo: Path, branch: str, message: str) -> str:
+    """Merge a gated branch into the checked-out branch (no fast-forward: one merge commit per cycle). Returns the sha."""
+    _git(repo, "-c", "user.email=evoloop@local", "-c", "user.name=evoloop", "merge", "--no-ff", "-q", "-m", message, branch)
+    return _git(repo, "rev-parse", "--short", "HEAD").strip()
+
+
+def undo_merge(repo: Path) -> None:
+    """Back out the merge just made (post-merge verification failed). ORIG_HEAD is set by `git merge`."""
+    _git(repo, "reset", "--hard", "-q", "ORIG_HEAD")
 
 
 def open_pr(wt: Path, branch: str, title: str, body: str) -> str | None:

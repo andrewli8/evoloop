@@ -46,7 +46,7 @@ Read `.evoloop/runs/<cycle>/report.md`; summarize problem, evidence, finalists, 
 ## Hard rules
 
 - The Evaluation Contract (`.evoloop/runs/<cycle>/contract.json`) is read-only once an experiment starts.
-- Never edit `.evoloop/config.yaml` to enable, escalate mode, or set `auto_merge`. Never merge, deploy, or push to main.
+- Never edit `.evoloop/config.yaml` to enable, escalate mode, or set `auto_merge`. Never merge or push yourself; with `auto_merge: true` the CLI merges gated branches on its own and cycles continue without resolves.
 - Stakeholder evaluations are simulated. Never present them as customer validation.
 - `disabled`, `paused`, `awaiting_human`, `blocked`, `budget_exhausted`: stop and tell the user why.
 - A cycle through a CLI agent takes minutes; say so before running one.

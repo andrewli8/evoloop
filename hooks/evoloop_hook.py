@@ -31,7 +31,7 @@ Rules: the Evaluation Contract (`.evoloop/runs/<cycle>/contract.json`) is read-o
 Switch: `/evoloop off|full|ultra`. Off: "stop evoloop".""",
     "ultra": """EVOLOOP MODE ACTIVE — level: ultra (autonomous)
 
-Everything in full, plus: when you finish a task and the user has not queued another, run one bounded cycle with `evoloop run` (the mode comes from `.evoloop/config.yaml`; never pass --mode to escalate) and report the result. Stop looping the moment a cycle returns paused, awaiting_human, blocked, disabled, budget_exhausted or error. Never resolve a cycle yourself; `evoloop resolve` is the human's call. Never merge or deploy.
+Everything in full, plus: when you finish a task and the user has not queued another, run one bounded cycle with `evoloop run` (the mode comes from `.evoloop/config.yaml`; never pass --mode to escalate) and report the result. Stop looping the moment a cycle returns paused, awaiting_human, blocked, disabled, budget_exhausted or error (with `auto_merge: true` in config, gated builds merge and resolve themselves, so keep going after `merged`). Never resolve a cycle yourself; `evoloop resolve` is the human's call. Never merge or deploy.
 Switch: `/evoloop off|full`. Off: "stop evoloop".""",
 }
 

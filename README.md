@@ -113,6 +113,8 @@ Set `provider` in `config.yaml`:
 
 A built cycle ends in `awaiting_human`; further cycles pause until `evoloop resolve`.
 
+**Unattended mode.** Set `auto_merge: true` in `config.yaml` yourself (the tool never sets it) and a branch that passes the gate is merged into the checked-out branch with `--no-ff`, the deterministic checks run again on the merged tree, and the cycle auto-resolves at level 1 so the next one starts immediately. If the merged tree fails, the merge is backed out and the branch waits for you as before. High-risk areas stay human-gated regardless. Nothing is ever pushed.
+
 ## Bounds and budget (config.yaml)
 
 ```yaml

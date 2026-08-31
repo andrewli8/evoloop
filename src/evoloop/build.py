@@ -104,6 +104,30 @@ def gate(c: Ctx, wt, branch: str, base: str, res: dict, review: dict, hypothesis
         r["pr"] = gitops.open_pr(wt, branch, f"evoloop: {w['title']}", _pr_body(c))
     r.update(status="awaiting_human", implementation="committed on branch",
              claim="passed engineering verification and simulated evaluation; recommended for real validation")
+    if c.cfg.auto_merge:
+        _auto_merge(c, wt, branch, w)
+
+
+def _auto_merge(c: Ctx, wt, branch: str, w: dict) -> None:
+    """auto_merge is set by the human in config.yaml, never by the tool. Merge the gated branch into the checked-out
+    branch, prove the merged tree with the same deterministic checks, auto-resolve at level 1 (engineering only).
+    A failed post-merge verification backs the merge out and leaves the branch awaiting a human."""
+    r = c.result
+    if not gitops.clean(c.repo):
+        r["auto_merge"] = {"done": False, "reason": "working tree has uncommitted changes"}
+        return
+    sha = gitops.merge(c.repo, branch, f"evoloop: merge {branch}\n\n{w['title']} (cycle {c.cycle_id}, gate passed)")
+    res = V.run_all(c.cfg.commands, c.repo, c.run_dir)
+    if not res["ok"]:
+        gitops.undo_merge(c.repo)
+        r["auto_merge"] = {"done": False, "reason": "post-merge verification failed", "verification": res}
+        return
+    r["auto_merge"] = {"done": True, "merge_sha": sha, "verification": res}
+    rid = c.state.add("Result", {"intervention": w["title"], "outcome": "kept", "note": f"auto-merged {sha}", "level": 1}, c.cycle_id)
+    if w.get("node_id"):
+        c.state.link(rid, "of", w["node_id"])
+    gitops.remove_worktree(c.repo, wt)
+    r.update(status="merged", implementation=f"auto-merged as {sha}", resolution={"outcome": "kept", "level": 1, "note": "auto-merge"})
 
 
 def regate(c: Ctx, prev: dict) -> None:

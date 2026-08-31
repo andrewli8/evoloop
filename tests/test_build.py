@@ -150,3 +150,25 @@ def test_regate_blocked_cycle(repo):
     r2 = run_cycle(repo, cfg(repo), p2, Mode.BUILD, regate_cycle=r["cycle"])
     assert r2["regate_of"] == r["cycle"] and r2["status"] == "awaiting_human" and r2["gate"]["passed"]
     assert r2["branch"] == r["branch"] and not any(c[0] in ("implement", "spec") for c in p2.calls)
+
+
+def test_auto_merge_merges_and_resolves(repo):
+    r = run_cycle(repo, cfg(repo, auto_merge=True), MockProvider(implement_fn=impl_ok), Mode.BUILD)
+    assert r["status"] == "merged" and r["auto_merge"]["done"], r.get("auto_merge")
+    assert (repo / "src" / "feature.ts").exists()
+    log = subprocess.run(["git", "log", "--oneline", "-1"], cwd=repo, capture_output=True, text=True).stdout
+    assert "evoloop: merge" in log
+    assert not State(repo).awaiting() and State(repo).nodes("Result")[0]["level"] == 1
+    r2 = run_cycle(repo, cfg(repo, auto_merge=True), MockProvider(), Mode.ANALYZE)
+    assert r2["status"] == "done"  # loop continues without a human
+
+
+def test_auto_merge_backs_out_when_merged_tree_fails(repo):
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True).stdout
+    c = cfg(repo, auto_merge=True)
+    # passes inside the worktree, fails in the main checkout: simulates a merge-only breakage
+    c = Config.model_validate({**c.model_dump(), "commands": {**c.commands.model_dump(), "build": f'test "$PWD" != "{repo.resolve()}"'}})
+    r = run_cycle(repo, c, MockProvider(implement_fn=impl_ok), Mode.BUILD)
+    assert r["status"] == "awaiting_human" and r["auto_merge"]["done"] is False and r["auto_merge"]["reason"] == "post-merge verification failed"
+    assert subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True).stdout == head
+    assert not (repo / "src" / "feature.ts").exists()
