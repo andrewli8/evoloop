@@ -53,5 +53,5 @@ def render(r: dict) -> str:
         l = r["lesson"]
         L += ["## Lesson", f"worked: {l.get('what_worked')} | failed: {l.get('what_failed')} | implication: {l.get('reusable_implication')}", ""]
     u = r.get("usage", {})
-    L += ["## Usage", f"model calls {u.get('model_calls')} · in {u.get('input_tokens')} · out {u.get('output_tokens')} · wall {u.get('wall_seconds')}s · by role {u.get('by_role')}"]
+    L += ["## Usage", f"model calls {u.get('model_calls')} · in {u.get('input_tokens')} (+{u.get('cached_input_tokens', 0)} cached) · out {u.get('output_tokens')} · wall {u.get('wall_seconds')}s · by role {u.get('by_role')}"]
     return "\n".join(L) + "\n"

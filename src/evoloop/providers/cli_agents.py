@@ -27,7 +27,8 @@ class ClaudeCLI(Provider):
         self.models = models or {}
 
     def _cmd(self, role: Role) -> list[str]:
-        cmd = ["claude", "-p", "--output-format", "json"]
+        # strict-mcp-config: without it every call carries the user's MCP tool schemas (~150k cached tokens)
+        cmd = ["claude", "-p", "--output-format", "json", "--strict-mcp-config", "--no-session-persistence"]
         if role.value in self.models:
             cmd += ["--model", self.models[role.value]]
         return cmd
@@ -36,8 +37,8 @@ class ClaudeCLI(Provider):
         out = _run(self._cmd(role) + ["--system-prompt", system, "--tools", ""], None, stdin=prompt)
         data = json.loads(out)
         u = data.get("usage", {})
-        inp = sum(u.get(k, 0) for k in ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
-        return data.get("result", ""), inp, u.get("output_tokens", 0)
+        inp = u.get("input_tokens", 0) + u.get("cache_creation_input_tokens", 0)
+        return data.get("result", ""), inp, u.get("output_tokens", 0), u.get("cache_read_input_tokens", 0)
 
     def implement(self, instructions, cwd):
         out = _run(self._cmd(Role.CODING) + ["--permission-mode", "acceptEdits", "--allowedTools", CODE_TOOLS],

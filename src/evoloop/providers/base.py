@@ -28,18 +28,20 @@ class Usage:
     calls: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
+    cached_input_tokens: int = 0  # reported, not budgeted: cache reads are ~10% cost and mostly host-CLI baggage
     by_role: dict[str, int] = field(default_factory=dict)
 
     def as_dict(self) -> dict:
-        return {"model_calls": self.calls, "input_tokens": self.input_tokens,
-                "output_tokens": self.output_tokens, "by_role": self.by_role}
+        return {"model_calls": self.calls, "input_tokens": self.input_tokens, "output_tokens": self.output_tokens,
+                "cached_input_tokens": self.cached_input_tokens, "by_role": self.by_role}
 
 
 class Provider:
     """Subclass and implement `complete`; `implement` is optional (only agents that edit code)."""
     name = "base"
 
-    def complete(self, role: Role, system: str, prompt: str) -> tuple[str, int, int]:
+    def complete(self, role: Role, system: str, prompt: str) -> tuple[str, int, int] | tuple[str, int, int, int]:
+        """Return (text, input_tokens, output_tokens[, cached_input_tokens])."""
         raise NotImplementedError
 
     def implement(self, instructions: str, cwd: Path) -> str:
@@ -59,10 +61,11 @@ class Budgeted:
             raise BudgetExceeded(f"model call budget {self.max_calls} reached")
         if self.usage.input_tokens + self.usage.output_tokens >= self.max_tokens:
             raise BudgetExceeded(f"token budget {self.max_tokens} reached")
-        out, i, o = self.p.complete(role, system, prompt)
+        out, i, o, *rest = self.p.complete(role, system, prompt)
         self.usage.calls += 1
         self.usage.input_tokens += i
         self.usage.output_tokens += o
+        self.usage.cached_input_tokens += rest[0] if rest else 0
         self.usage.by_role[role.value] = self.usage.by_role.get(role.value, 0) + 1
         return out
 
