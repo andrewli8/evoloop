@@ -8,25 +8,43 @@ observe → find problems → explore diverse interventions → evaluate → bui
 
 EvolveLoop uses AI for search and judgment, ordinary software for control and verification, and real-world evidence for truth. It is closer to an `autoresearch` loop for product engineering than to an agent framework: one finite `runCycle()`, at most one intervention per cycle, everything inspectable on disk.
 
-## Install and run
+## Quick start
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+You need Python 3.11+, [uv](https://docs.astral.sh/uv/), and one model provider. The easiest is a coding-agent CLI you already have: [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`) or [Codex](https://github.com/openai/codex) (`codex`). Without one, set `ANTHROPIC_API_KEY` (analyze/plan only, no code changes).
 
 ```bash
 uv tool install git+https://github.com/andrewli8/evoloop   # installs the `evoloop` command
-# from a local checkout instead: uv tool install /path/to/evoloop
-# once published: uv tool install evolveloop  (PyPI name; `evoloop` is an unrelated package)
 
 cd your-repo
-evoloop init                     # inspects the repo, writes .evoloop/
-evoloop analyze                  # one cycle, recommendation only (default mode)
+evoloop init          # scans the repo, writes .evoloop/, picks the provider it finds
+evoloop analyze       # one cycle: problem -> opportunities -> finalists -> recommendation
+```
+
+`init` prints what it detected. Check three things before the first real run:
+
+1. **Provider line.** The last line of `init` output says which provider it chose. If it says `mock`, no `claude`/`codex`/API key was found; every model call returns placeholder text and the report is meaningless. Fix by installing one and editing `provider:` in `.evoloop/config.yaml`.
+2. **Commands.** `init` infers `test`, `lint`, `typecheck`, `build`. If any are missing or wrong, edit `commands:` in `.evoloop/config.yaml`. Build mode refuses to deliver anything that fails these.
+3. **Evidence.** The scan only sees `TODO`s, fix commits, open GitHub issues and pain words in docs. Real feedback beats all of that: drop support tickets, user quotes, or analytics notes into `.evoloop/evidence/*.md`, one item per line.
+
+Optional model routing in `config.yaml` (Claude Code aliases shown; omit to use the CLI's default model for everything):
+
+```yaml
+provider: claude-cli
+models: {fast: haiku, reasoning: sonnet, coding: sonnet, review: sonnet}
+```
+
+A real analyze cycle makes 8–10 model calls. Through a CLI agent that is 3–10 minutes, mostly process startup. Read the result in `.evoloop/runs/<cycle>/report.md`.
+
+Then, when you trust the recommendations:
+
+```bash
 evoloop run --mode plan          # + implementation spec
 evoloop run --mode build         # + isolated branch, implementation, verification
 evoloop run --mode pr            # + push branch and open a PR (never merges)
 evoloop status
 evoloop resolve <cycle> --outcome kept|reverted --note "..."
 evoloop disable                  # guarantees zero model calls
-evoloop skill install            # thin adapter for Claude Code / Codex / Cursor
+evoloop skill install            # thin adapter so Claude Code / Codex / Cursor know how to call it
 evoloop optimize                 # experimental meta-loop, off by default
 ```
 
@@ -50,12 +68,12 @@ Set `provider` in `config.yaml`:
 
 | provider     | needs                | can build code |
 |--------------|----------------------|----------------|
-| `mock`       | nothing              | yes (fake)     |
+| `mock`       | nothing              | placeholder output, tests only |
 | `claude-cli` | `claude` on PATH     | yes            |
 | `codex-cli`  | `codex` on PATH      | yes            |
 | `anthropic`  | `ANTHROPIC_API_KEY`  | no (analyze/plan only) |
 
-Roles `fast`, `reasoning`, `coding`, `review` can each be mapped to a model in `models:`; by default the provider's default model is used for all.
+`init` picks the first of `claude-cli`, `codex-cli`, `anthropic` it finds and falls back to `mock`. Roles `fast`, `reasoning`, `coding`, `review` can each be mapped to a model in `models:`; by default the provider's default model is used for all.
 
 ## What one cycle does
 
