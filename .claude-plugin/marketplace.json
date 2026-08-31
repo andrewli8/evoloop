@@ -1,0 +1,9 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "evoloop",
+  "description": "EvolveLoop: bounded, evidence-driven product improvement loop for coding agents.",
+  "owner": { "name": "Andrew Li", "url": "https://github.com/andrewli8" },
+  "plugins": [
+    { "name": "evoloop", "description": "Session mode (off|full|ultra) that lets the agent run EvolveLoop cycles safely.", "source": "./", "category": "productivity" }
+  ]
+}

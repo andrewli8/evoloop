@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/evoloop_hook.py\" session", "timeout": 8, "statusMessage": "Loading evoloop mode..." }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/evoloop_hook.py\" prompt", "timeout": 5, "statusMessage": "Tracking evoloop mode..." }
+        ]
+      }
+    ]
+  }
+}

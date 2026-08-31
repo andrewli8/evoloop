@@ -62,6 +62,25 @@ Your application never depends on EvolveLoop. Everything it writes lives in `.ev
 └── worktrees/       # one git worktree per build cycle        (gitignored)
 ```
 
+## Inside your coding agent (session mode)
+
+EvolveLoop also ships as a Claude Code / Codex plugin, the same shape as `caveman` or `ponytail`: a session level the agent obeys, switched with a slash command.
+
+```
+/plugin marketplace add andrewli8/evoloop
+/plugin install evoloop@evoloop
+```
+
+| level   | what the agent does |
+|---------|---------------------|
+| `off`   | dormant; never invokes evoloop |
+| `full`  | runs `evoloop analyze` / `run` when you ask, reads reports for you, obeys contracts, gates and delivery modes (default) |
+| `ultra` | full, plus after each finished task runs one `evoloop run` (mode from `config.yaml`) until a cycle pauses, blocks or awaits you |
+
+`/evoloop off|full|ultra` switches for the session, `/evoloop default <level>` persists it (`~/.config/evoloop/config.json`, or `EVOLOOP_DEFAULT_MODE`), "stop evoloop" turns it off. On session start the hook also injects `evoloop status` when the current repo is initialized, so the agent knows about cycles awaiting you. The plugin never raises a delivery mode; `build`/`pr` still come from `.evoloop/config.yaml` that you edit.
+
+Without the plugin, `evoloop skill install` writes a thin `SKILL.md` / `AGENTS.md` section that teaches the host agent the same rules.
+
 ## Providers
 
 Set `provider` in `config.yaml`:
