@@ -81,14 +81,24 @@ def test_score_positive_and_max_items(tmp_path):
     assert all(i["score"] > 0 for i in items)
 
 
-def test_binary_rows_no_crash_zero_churn(tmp_path):
-    repo = make_repo(tmp_path / "r")
-    (repo / "img.bin").write_bytes(bytes(range(256)) * 4)
-    git(repo, "add", "-A")
-    git(repo, "commit", "-q", "-m", "feat: binary")
+def test_binary_rows_are_skipped_entirely(tmp_path):
+    repo = make_repo(tmp_path / "b")
+    for n in (30, 40):
+        (repo / "logo.png").write_bytes(b"\x89PNG\r\n" + bytes(range(n)))
+        git(repo, "add", "-A")
+        git(repo, "commit", "-qm", f"fix: binary asset {n}")
+    commit(repo, "feat: code", **{"code.py": "x = 1\n" * 20})
     items = collect_churn_evidence(repo)
-    assert all(i["score"] > 0 for i in items)  # binary-only commit yields no churn, so no item
+    assert all("logo.png" not in i["ref"] for i in items)
 
+
+def test_renamed_paths_use_new_name(tmp_path):
+    repo = make_repo(tmp_path / "rn")
+    commit(repo, "feat: module", **{"old_name.py": "x = 1\n" * 30})
+    git(repo, "mv", "old_name.py", "new_name.py")
+    commit(repo, "fix: rename and rework", **{"new_name.py": "x = 2\n" * 40})
+    refs = [i["ref"] for i in collect_churn_evidence(repo)]
+    assert "new_name.py" in refs and all("=>" not in r for r in refs)
 
 def test_collect_includes_churn_by_default_and_gates_on_config(tmp_path):
     from evoloop.config import Config

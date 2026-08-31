@@ -40,11 +40,15 @@ def collect_churn_evidence(repo_root: Path, *, window_days: int = 90, max_items:
         if len(parts) != 3:
             continue
         added, deleted, path = parts
+        if not (added.isdigit() and deleted.isdigit()):
+            continue  # binary rows ("-\t-") carry no churn signal; skipping avoids assets outscoring code
+        path = re.sub(r"\{([^{}]*) => ([^{}]*)\}", r"\2", path).replace("//", "/")  # rename rows: keep the new name
+        if " => " in path:
+            path = path.split(" => ")[-1]
         if any(p in SKIP_DIRS for p in Path(path).parts):
             continue
         s = stats.setdefault(path, {"churn": 0, "commits": 0, "reverts": 0, "fix_ts": []})
-        if added.isdigit() and deleted.isdigit():  # binary rows are "-\t-": count the commit, 0 churn
-            s["churn"] += int(added) + int(deleted)
+        s["churn"] += int(added) + int(deleted)
         s["commits"] += 1
         if is_revert:
             s["reverts"] += 1
