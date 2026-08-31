@@ -3,3 +3,4 @@ state.sqlite-*
 runs/
 worktrees/
 optimize/
+project.json
