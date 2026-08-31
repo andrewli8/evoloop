@@ -56,6 +56,13 @@ class Optimize(BaseModel):
     enabled: bool = False
 
 
+class Smoke(BaseModel):
+    enabled: bool = False  # opt-in: smoke-running commands costs wall time
+    timeout_s: float = 300
+    slow_threshold_s: float = 60
+    commands: list[str] = Field(default_factory=lambda: ["test"])  # which `commands:` keys to smoke-run
+
+
 class Evidence(BaseModel):
     external: list[str] = Field(default_factory=list)  # JSON evidence files (or `-`); `cmd:` is refused here, CLI flag only
 
@@ -74,6 +81,7 @@ class Config(BaseModel):
     high_risk_terms: list[str] = Field(default_factory=lambda: list(HIGH_RISK_TERMS))
     auto_merge: bool = False  # never flipped by the tool itself
     optimize: Optimize = Optimize()
+    smoke: Smoke = Smoke()
 
     @staticmethod
     def path(repo: Path) -> Path:

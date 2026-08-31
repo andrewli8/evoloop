@@ -130,7 +130,10 @@ A built cycle ends in `awaiting_human`; further cycles pause until `evoloop reso
 search: {max_problems: 5, deep_problems: 2, branches: 5, candidates_per_branch: 2, opportunities: 5, finalists: 3, stakeholder_roles: 4}
 loops:  {refinement: 1, repair: 2}
 budget: {max_model_calls: 40, max_tokens: 300000}
+smoke:  {enabled: false, timeout_s: 300, slow_threshold_s: 60, commands: [test]}
 ```
+
+`smoke` (off by default) runs the command keys it names from your `commands:` section during evidence collection and records failures, timeouts, slow passes, and missing commands as first-hand `observed` evidence with source `smoke`. Each command is bounded by `timeout_s`; a passing command slower than `slow_threshold_s` seconds is recorded too. Setting `enabled: false` is an immediate kill switch.
 
 A typical analyze cycle is 8–10 model calls. Each run records calls, tokens, wall time and candidate counts. The budget counts uncached input and output tokens; prompt-cache reads (mostly the host CLI's own system prompt) are reported separately and not budgeted.
 

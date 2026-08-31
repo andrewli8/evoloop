@@ -98,15 +98,22 @@ def results(state, limit: int = 10) -> list[dict]:
 SOURCES = {"todos": todos, "git_log": git_log, "issues": issues, "docs": docs, "notes": notes}
 
 
-def collect(repo: Path, state, sources: list[str], external: list[str] = (), external_exec: list[str] = ()) -> list[dict]:
+def collect(repo: Path, state, sources: list[str], external: list[str] = (), external_exec: list[str] = (),
+            cfg=None) -> list[dict]:
     """`external`: JSON evidence files/stdin from config.yaml (never executed). `external_exec`: specs from the CLI flag,
-    where `cmd:` is allowed because a human typed it."""
+    where `cmd:` is allowed because a human typed it. `cfg`: full Config, enables opt-in smoke evidence."""
     ev: list[dict] = []
     for s in sources:
         try:
             ev += results(state) if s == "results" else SOURCES[s](repo) if s in SOURCES else []
         except Exception as e:  # a broken source must not kill the cycle
             ev.append(_ev(s, "hypothetical", f"source failed: {e}", "-"))
+    if cfg is not None and cfg.smoke.enabled:
+        try:
+            from ..smoke import collect_smoke_evidence
+            ev += collect_smoke_evidence(cfg, cwd=str(repo))
+        except Exception:  # smoke failure degrades to zero evidence, never breaks the cycle
+            pass
     if external or external_exec:
         from .external import load_external_evidence
         for spec in external:
