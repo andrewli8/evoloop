@@ -117,7 +117,7 @@ loops:  {refinement: 1, repair: 2}
 budget: {max_model_calls: 40, max_tokens: 300000}
 ```
 
-A typical analyze cycle is 8–10 model calls. Each run records calls, tokens, wall time and candidate counts.
+A typical analyze cycle is 8–10 model calls. Each run records calls, tokens, wall time and candidate counts. The budget counts uncached input and output tokens; prompt-cache reads (mostly the host CLI's own system prompt) are reported separately and not budgeted.
 
 ## Claims
 
