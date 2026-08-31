@@ -35,6 +35,20 @@ def test_publish_step_only_runs_on_tags():
     assert "if: github.ref_type == 'tag'" in publish_step
 
 
+def test_release_workflow_uploads_wheel_assets():
+    import yaml
+
+    text = (ROOT / ".github/workflows/release.yml").read_text()
+    workflow = yaml.safe_load(text)
+    triggers = workflow.get("on") or workflow[True]  # YAML 1.1 parses bare `on` as True
+    assert triggers["push"]["tags"] == ["v*"]
+    assert "workflow_dispatch" in triggers
+    assert "uv build" in text
+    assert "softprops/action-gh-release@v2" in text
+    assert "contents: write" in text
+    assert "dist/*" in text
+
+
 def test_readme_quick_start_installs_from_git():
     readme = (ROOT / "README.md").read_text()
     quick_start = readme.split("## Quick start")[1].split("## ")[0]
