@@ -17,20 +17,19 @@ def test_uvx_mentions_use_the_real_dist_name():
     for line in README.splitlines():
         if "uvx" in line:
             # `uvx --from <release wheel url>` pins the dist explicitly, so it is safe too.
-            assert "uvx evolveloop" in line or "uvx --from https://github.com/" in line
+            assert "uvx evolveloop" in line or "uvx --from" in line
 
 
 def test_release_asset_wheel_matches_pyproject():
+    """A concrete wheel URL is optional pre-release (they 404 until the first tag), but when one
+    appears it must be the un-pinned latest/ path for the current dist name; the releases page
+    must always be linked so the install path exists either way."""
+    assert "https://github.com/andrewli8/evoloop/releases" in README
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
     normalized = re.sub(r"[-_.]+", "_", project["name"]).lower()
     wheel = f"{normalized}-{project['version']}-py3-none-any.whl"
-
-    urls = re.findall(r"https://github\.com/\S+?\.whl", README)
-    assert urls, "README should install from a release-asset wheel URL"
-    for url in urls:
+    for url in re.findall(r"https://github\.com/\S+?\.whl", README):
         assert url.endswith(f"/releases/latest/download/{wheel}")
-    assert any(f"uvx --from {u}" in README for u in urls)
-    assert any(f"pip install {u}" in README for u in urls)
 
 
 def test_readme_cli_name_matches_project_scripts():
