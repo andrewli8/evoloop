@@ -89,7 +89,7 @@ def _resume(c: Ctx, from_cycle: str, pick: str | None) -> None:
 def _search(c: Ctx) -> None:
     s, r, llm = c.cfg.search, c.result, c.llm
     # OBSERVE (deterministic)
-    evidence = ev_mod.collect(c.repo, c.state, c.cfg.evidence_sources)
+    evidence = ev_mod.collect(c.repo, c.state, c.cfg.evidence_sources, c.cfg.evidence.external)
     r["evidence_count"] = {k: sum(1 for e in evidence if e["class"] == k) for k in ev_mod.CLASSES}
     if not evidence:
         r.update(decision="STOP", stop_reason="insufficient evidence: no evidence sources produced anything", problem=None)

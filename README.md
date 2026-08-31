@@ -25,6 +25,12 @@ evoloop analyze       # one cycle: problem -> opportunities -> finalists -> reco
 1. **Provider line.** The last line of `init` output says which provider it chose. If it says `mock`, no `claude`/`codex`/API key was found; every model call returns placeholder text and the report is meaningless. Fix by installing one and editing `provider:` in `.evoloop/config.yaml`.
 2. **Commands.** `init` infers `test`, `lint`, `typecheck`, `build`. If any are missing or wrong, edit `commands:` in `.evoloop/config.yaml`. Build mode refuses to deliver anything that fails these.
 3. **Evidence.** The scan only sees `TODO`s, fix commits, open GitHub issues and pain words in docs. Real feedback beats all of that: drop support tickets, user quotes, or analytics notes into `.evoloop/evidence/*.md`, one item per line.
+4. **External JSON evidence.** Pipe any system in without an adapter: `--evidence-json SOURCE` (repeatable) on `analyze`/`run`, or `evidence.external: [SOURCE, ...]` in `config.yaml`. `SOURCE` is a file path, a shell command whose stdout is read, or `-` for stdin. The payload is a JSON array or `{"items": [...]}`; each item is a string or an object with `text` (optional `id`, `class`, `url`, `weight`, `timestamp`). Items are tagged `kind: external` with `source` set to the `SOURCE` string, capped at 50 items and 300 chars each; bad JSON, a missing file, or a failing command logs a warning and contributes nothing.
+
+   ```sh
+   linear issues list --json | evoloop analyze --evidence-json -
+   evoloop run --evidence-json feedback.json --evidence-json "curl -s https://example.com/api/tickets"
+   ```
 
 Optional model routing in `config.yaml` (Claude Code aliases shown; omit to use the CLI's default model for everything):
 

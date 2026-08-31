@@ -7,8 +7,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from .config import EVO_DIR
-from .scan import SKIP_DIRS
+from ..config import EVO_DIR
+from ..scan import SKIP_DIRS
 
 CLASSES = ("observed", "inferred", "hypothetical", "simulated")
 PAIN_WORDS = re.compile(r"\b(slow|confus|manual|workaround|annoy|error|fail|bug|hard to|difficult|unclear|missing|broken|painful|tedious)\w*", re.I)
@@ -98,13 +98,18 @@ def results(state, limit: int = 10) -> list[dict]:
 SOURCES = {"todos": todos, "git_log": git_log, "issues": issues, "docs": docs, "notes": notes}
 
 
-def collect(repo: Path, state, sources: list[str]) -> list[dict]:
+def collect(repo: Path, state, sources: list[str], external: list[str] = ()) -> list[dict]:
+    """`external`: JSON evidence specs (file path, shell command, or `-`), see `evidence.external`."""
     ev: list[dict] = []
     for s in sources:
         try:
             ev += results(state) if s == "results" else SOURCES[s](repo) if s in SOURCES else []
         except Exception as e:  # a broken source must not kill the cycle
             ev.append(_ev(s, "hypothetical", f"source failed: {e}", "-"))
+    if external:
+        from .external import load_external_evidence
+        for spec in external:
+            ev += load_external_evidence(spec, cwd=repo)
     rank = {c: i for i, c in enumerate(CLASSES)}
     ev.sort(key=lambda e: rank[e["class"]])
     for i, e in enumerate(ev):

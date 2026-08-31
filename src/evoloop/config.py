@@ -56,6 +56,10 @@ class Optimize(BaseModel):
     enabled: bool = False
 
 
+class Evidence(BaseModel):
+    external: list[str] = Field(default_factory=list)  # JSON evidence specs: file path, shell command, or `-` (stdin)
+
+
 class Config(BaseModel):
     enabled: bool = True
     mode: Mode = Mode.ANALYZE
@@ -66,6 +70,7 @@ class Config(BaseModel):
     budget: Budget = Budget()
     commands: Commands = Commands()
     evidence_sources: list[str] = Field(default_factory=lambda: ["todos", "git_log", "issues", "docs", "notes", "results"])
+    evidence: Evidence = Evidence()
     high_risk_terms: list[str] = Field(default_factory=lambda: list(HIGH_RISK_TERMS))
     auto_merge: bool = False  # never flipped by the tool itself
     optimize: Optimize = Optimize()
