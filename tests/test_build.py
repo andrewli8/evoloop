@@ -97,3 +97,27 @@ def test_provider_without_implement_yields_plan_only(repo):
 def test_plan_mode_writes_spec_no_code(repo):
     r = run_cycle(repo, cfg(repo), MockProvider(), Mode.PLAN)
     assert r["decision"] == "RECOMMEND" and r["spec"] and "worktree" not in r
+
+
+def test_build_from_previous_cycle(repo):
+    a = run_cycle(repo, cfg(repo), MockProvider(), Mode.ANALYZE)
+    assert a["decision"] == "RECOMMEND"
+    p = MockProvider(implement_fn=impl_ok)
+    r = run_cycle(repo, cfg(repo), p, Mode.BUILD, from_cycle=a["cycle"])
+    assert r["from_cycle"] == a["cycle"] and r["winner"]["title"] == a["winner"]["title"]
+    assert r["status"] == "awaiting_human" and r["gate"]["passed"]
+    assert not any(c[0] in ("problem_search", "branches", "adversarial") for c in p.calls)  # no re-search
+    assert r["problem"]["title"] == a["problem"]["title"]
+
+
+def test_build_pick_and_high_risk_still_gated(repo):
+    a = run_cycle(repo, cfg(repo), MockProvider(), Mode.ANALYZE)
+    other = next(o for o in a["opportunities"] if o["id"] != a["winner"]["id"] and o.get("software_required", True))
+    r = run_cycle(repo, cfg(repo), MockProvider(implement_fn=impl_ok), Mode.BUILD, from_cycle=a["cycle"], pick=other["id"])
+    assert r["winner"]["title"] == other["title"] and r["status"] == "awaiting_human"
+    from evoloop.state import State
+    State(repo).db.execute("UPDATE cycles SET status='done'")  # clear awaiting so another build can run
+    a2 = run_cycle(repo, cfg(repo, high_risk_terms=["option"]), MockProvider(), Mode.ANALYZE)
+    State(repo).db.execute("UPDATE cycles SET status='done'")
+    r2 = run_cycle(repo, cfg(repo, high_risk_terms=["option"]), MockProvider(implement_fn=impl_ok), Mode.BUILD, from_cycle=a2["cycle"])
+    assert r2["decision"] == "RECOMMEND" and "human gated" in r2["stop_reason"]

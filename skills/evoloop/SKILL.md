@@ -30,10 +30,18 @@ Switch with `/evoloop off|full|ultra`; `/evoloop default <level>` persists acros
 - `evoloop status` — always first. Shows enabled flag, mode, recent cycles, anything awaiting a human.
 - `evoloop init` — once per repo. Read its provider line: `mock` means placeholder output; tell the user to install `claude`/`codex` or set `ANTHROPIC_API_KEY` and set `provider:` in `.evoloop/config.yaml`.
 - `evoloop analyze` — recommendation only. No code changes.
-- `evoloop run --mode plan|build|pr` — only when the user asked for that mode. Never pass a mode the user did not ask for.
+- `evoloop build <cycle> [--pick cN] [--pr]` — implement a recommendation the user approved from a previous cycle's report: no new search, same frozen contract, worktree, verification, review and gate. This is the normal path from brainstorm to code.
+- `evoloop run --mode plan|build|pr` — search and build in one cycle; only when the user asked for that mode.
 - `evoloop resolve <cycle> --outcome kept|reverted --note "..."` — only on the human's instruction.
 
 Read `.evoloop/runs/<cycle>/report.md`; summarize problem, evidence, finalists, winner, verification, gate. Never paste raw logs.
+
+## Brainstorm → build flow
+
+1. `evoloop analyze`; summarize the report: problem, evidence, the ~5 opportunities (with ids), finalists, winner, critic verdicts.
+2. Ask the user which to implement (winner or an opportunity id), or whether to stop.
+3. `evoloop build <cycle> [--pick cN]`. It runs minutes; report the gate result, branch, changed files, review findings.
+4. The user tests/merges the branch, then `evoloop resolve <cycle> --outcome kept|reverted`. Only then can the next cycle run.
 
 ## Hard rules
 

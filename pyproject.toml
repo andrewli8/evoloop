@@ -1,6 +1,6 @@
 [project]
 name = "evolveloop"
-version = "0.1.1"
+version = "0.1.2"
 description = "Bounded, evidence-driven product improvement loop for any git repository"
 readme = "README.md"
 requires-python = ">=3.11"

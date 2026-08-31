@@ -27,7 +27,9 @@ class Ctx:
     result: dict = field(default_factory=dict)
 
 
-def run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None = None) -> dict:
+def run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None = None,
+              from_cycle: str | None = None, pick: str | None = None) -> dict:
+    """One bounded cycle. `from_cycle` skips search and builds the winner (or opportunity `pick`) of a previous cycle."""
     mode = mode or cfg.mode
     state = State(repo)
     if not cfg.enabled or mode == Mode.OFF:
@@ -45,7 +47,7 @@ def run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None = N
     llm = Budgeted(provider, cfg.budget.max_model_calls, cfg.budget.max_tokens, cfg.models)
     ctx = Ctx(repo, cfg, state, llm, mode, cid, run_dir, pack, {"cycle": cid, "mode": mode.value, "provider": provider.name, "started": time.time()})
     try:
-        _search(ctx)
+        _resume(ctx, from_cycle, pick) if from_cycle else _search(ctx)
         if ctx.result["decision"] == "BUILD":
             from .build import build
             build(ctx)
@@ -64,6 +66,22 @@ def run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None = N
         state.finish_cycle(cid, status, ctx.result)
         state.release()
     return ctx.result
+
+
+def _resume(c: Ctx, from_cycle: str, pick: str | None) -> None:
+    """Human-approved handoff: reuse a previous cycle's problem/stakeholders/candidate, re-run only the decision."""
+    prev = next((x for x in c.state.cycles(200) if x["id"] == from_cycle), None)
+    if not prev or not prev.get("result"):
+        raise ValueError(f"unknown cycle {from_cycle}")
+    pr = prev["result"]
+    cands = pr.get("opportunities") or []
+    w = next((o for o in cands if o.get("id") == pick), None) if pick else pr.get("winner")
+    if not w:
+        raise ValueError(f"cycle {from_cycle} has no {'candidate ' + pick if pick else 'winner'}; ids: {[o.get('id') for o in cands]}")
+    c.result.update(problem=pr["problem"], supporting_evidence=pr.get("supporting_evidence", []), stakeholders=pr.get("stakeholders", []),
+                    finalists=pr.get("finalists", []), opportunities=cands, from_cycle=from_cycle, picked=pick)
+    _decide(c, [{**w, "adversarial": w.get("adversarial", {}), "stakeholder_score": w.get("stakeholder_score") or 3.0,
+                 "cheap_score": w.get("cheap_score", 0)}])
 
 
 # --- search half of the cycle ---------------------------------------------------------------

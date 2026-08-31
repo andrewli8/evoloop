@@ -60,7 +60,7 @@ def init(provider: str = typer.Option(None, help="claude-cli | codex-cli | anthr
     typer.echo(f"  - provider: {prov}" + ("  (WARNING: mock returns placeholder output; install `claude` or `codex`, or set ANTHROPIC_API_KEY)" if prov == "mock" else ""))
 
 
-def _cycle(mode: Mode | None, provider: str | None):
+def _cycle(mode: Mode | None, provider: str | None, from_cycle: str | None = None, pick: str | None = None):
     repo = _repo()
     cfg = Config.load(repo)
     if not cfg.enabled or (mode or cfg.mode) == Mode.OFF:
@@ -74,7 +74,7 @@ def _cycle(mode: Mode | None, provider: str | None):
     if name == "mock":
         typer.echo("WARNING: provider=mock — output is placeholder text for testing, not analysis. Set provider in .evoloop/config.yaml.", err=True)
     try:
-        r = run_cycle(repo, cfg, make_provider(name, cfg.models), mode)
+        r = run_cycle(repo, cfg, make_provider(name, cfg.models), mode, from_cycle, pick)
     except LockedError as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(3)
@@ -98,6 +98,13 @@ def run(mode: Mode = typer.Option(None, help="analyze | plan | build | pr (defau
         provider: str = typer.Option(None)):
     """Run one bounded cycle. Continuous use = a scheduler calling this repeatedly."""
     _cycle(mode, provider)
+
+
+@app.command()
+def build(cycle: str, pick: str = typer.Option(None, help="opportunity id (c1, c2, ...) instead of the winner"),
+          pr: bool = typer.Option(False, help="open a PR after the gate passes"), provider: str = typer.Option(None)):
+    """Implement a recommendation from a previous analyze/plan cycle: no new search, same contract/verify/review/gate."""
+    _cycle(Mode.PR if pr else Mode.BUILD, provider, cycle, pick)
 
 
 @app.command()

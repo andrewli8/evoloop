@@ -21,6 +21,7 @@ Do NOT invoke for ordinary feature requests the user already specified.
 How to run:
 - `evoloop status` — mode, enabled, last cycles, anything awaiting a human.
 - `evoloop analyze` — recommendation only (no code changes). Default.
+- `evoloop build <cycle> [--pick cN]` — implement a recommendation the user approved from a previous report (isolated branch, verification, review, gate).
 - `evoloop run --mode plan|build|pr` — only if the user asked for that mode. Never pass a mode the user did not ask for.
 - `evoloop resolve <cycle> --outcome kept|reverted --note "..."` — after the human decides.
 

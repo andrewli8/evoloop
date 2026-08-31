@@ -25,7 +25,7 @@ RULES = {
 EvolveLoop is a bounded, evidence-driven product improvement loop installed as the `evoloop` CLI. The CLI is the source of truth; you are its operator.
 
 When to run it: the user asks what to improve next, wants a grounded product recommendation, or asks for an improvement cycle. Not for feature requests the user already specified.
-How: `evoloop status` first. `evoloop analyze` for a recommendation (no code changes). `evoloop run --mode plan|build|pr` only when the user asked for that mode. Repo not initialized: offer `evoloop init`, then check its provider line (mock = placeholder output, tell the user).
+How: `evoloop status` first. `evoloop analyze` for a recommendation (no code changes). When the user approves one, `evoloop build <cycle> [--pick cN]` implements it on an isolated branch with verification, review and a delivery gate. `evoloop run --mode plan|build|pr` (search+build in one) only when the user asked for that mode. Repo not initialized: offer `evoloop init`, then check its provider line (mock = placeholder output, tell the user).
 Results: read `.evoloop/runs/<cycle>/report.md`; summarize problem, evidence, finalists, winner, gate. Never paste raw logs.
 Rules: the Evaluation Contract (`.evoloop/runs/<cycle>/contract.json`) is read-only during an experiment. Never enable modes, merge, deploy, or raise permissions yourself. Stakeholder evaluations are simulated; never call them customer validation. Disabled/paused output means stop and tell the user why.
 Switch: `/evoloop off|full|ultra`. Off: "stop evoloop".""",

@@ -35,10 +35,12 @@ models: {fast: haiku, reasoning: sonnet, coding: sonnet, review: sonnet}
 
 A real analyze cycle makes 8–10 model calls. Through a CLI agent that is 3–10 minutes, mostly process startup. Read the result in `.evoloop/runs/<cycle>/report.md`.
 
-Then, when you trust the recommendations:
+Then, when you trust a recommendation:
 
 ```bash
-evoloop run --mode plan          # + implementation spec
+evoloop build <cycle>            # implement that cycle's winner: isolated branch, verify, review, gate
+evoloop build <cycle> --pick c3  # or one of its other opportunities (ids in the report)
+evoloop run --mode plan          # search + implementation spec in one cycle
 evoloop run --mode build         # + isolated branch, implementation, verification
 evoloop run --mode pr            # + push branch and open a PR (never merges)
 evoloop status
@@ -74,7 +76,7 @@ EvolveLoop also ships as a Claude Code / Codex plugin, the same shape as `cavema
 | level   | what the agent does |
 |---------|---------------------|
 | `off`   | dormant; never invokes evoloop |
-| `full`  | runs `evoloop analyze` / `run` when you ask, reads reports for you, obeys contracts, gates and delivery modes (default) |
+| `full`  | runs `evoloop analyze` when you ask, walks you through the report, implements the one you approve with `evoloop build <cycle>`, obeys contracts and gates (default) |
 | `ultra` | full, plus after each finished task runs one `evoloop run` (mode from `config.yaml`) until a cycle pauses, blocks or awaits you |
 
 `/evoloop off|full|ultra` switches for the session, `/evoloop default <level>` persists it (`~/.config/evoloop/config.json`, or `EVOLOOP_DEFAULT_MODE`), "stop evoloop" turns it off. On session start the hook also injects `evoloop status` when the current repo is initialized, so the agent knows about cycles awaiting you. The plugin never raises a delivery mode; `build`/`pr` still come from `.evoloop/config.yaml` that you edit.
