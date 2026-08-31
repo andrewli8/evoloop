@@ -1,4 +1,4 @@
-no PyPI release yet: users must install from git; `uvx evolveloop` does not work
+[observed] release automation is complete (v-tag builds the wheel, smokes it, attaches it to a GitHub Release; PyPI publish workflow ready for a trusted publisher). The sole remaining step is the maintainer pushing a v* tag — a human action; do not propose further release tooling.
 init does not detect lint/typecheck/build for python projects without ruff/mypy config; verification then runs tests only
 [observed] the binding constraint on evidence quality is that this project has no published release and no users yet: issues source (gh issue list) exists but the repo has zero issues, analytics feeds exist via --evidence-json but nothing emits data. This is not solvable by more intake code; it needs a PyPI release and real users. Do not propose further evidence adapters until data exists.
 codex-cli adapter reports zero token usage, so budgets cannot be enforced for it
