@@ -1,6 +1,6 @@
 no PyPI release yet: users must install from git; `uvx evolveloop` does not work
 init does not detect lint/typecheck/build for python projects without ruff/mypy config; verification then runs tests only
-evidence sources are limited to TODOs, fix commits, gh issues, doc pain words and notes; no analytics or log adapters exist
+no adapter pulls real end-user analytics (PostHog/Sentry-style) automatically; workaround exists via --evidence-json and cmd:, and smoke-running commands covers runtime failures
 codex-cli adapter reports zero token usage, so budgets cannot be enforced for it
 dedup is lexical (Jaccard on titles); paraphrased duplicate candidates slip through
 risk classification is a keyword list; a high-risk change phrased without those words passes as low risk
