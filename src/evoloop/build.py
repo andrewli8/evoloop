@@ -10,12 +10,25 @@ from .cycle import Ctx
 from .providers import NotSupported, Role
 
 
+class SpecInvalid(RuntimeError):
+    pass
+
+
 def write_spec(c: Ctx, w: dict) -> dict:
-    spec = c.llm.json(Role.CODING, P.ENGINEER, P.p("spec", P.SPEC, {"context": scan.summary(c.pack),
-                                                                    "winner": w, "problem": c.result["problem"]}))
+    inp = {"context": scan.summary(c.pack), "winner": {k: w.get(k) for k in ("title", "summary", "mechanism")},
+           "problem": {k: c.result["problem"].get(k) for k in ("title", "description", "workflow")}}
+    spec = c.llm.json(Role.CODING, P.ENGINEER, P.p("spec", P.SPEC, inp))
+    if not _valid_spec(spec):  # e.g. a hallucinated tool call instead of a spec; one retry, then refuse to build on garbage
+        spec = c.llm.json(Role.CODING, P.ENGINEER, P.p("spec", "Previous reply was not a spec. " + P.SPEC, inp))
+    if not _valid_spec(spec):
+        raise SpecInvalid(f"spec step returned no usable spec: {str(spec)[:120]}")
     c.result["spec"] = spec
     (c.run_dir / "spec.json").write_text(json.dumps(spec, indent=1))
     return spec
+
+
+def _valid_spec(spec) -> bool:
+    return isinstance(spec, dict) and isinstance(spec.get("spec"), str) and len(spec["spec"]) > 20 and "tool_name" not in spec
 
 
 def build(c: Ctx) -> None:
@@ -36,7 +49,12 @@ def build(c: Ctx) -> None:
     r["branch"], r["worktree"] = branch, str(wt)
     # 3. Baseline
     r["baseline"] = V.run_all(cfg.commands, wt)
-    spec = write_spec(c, w)
+    try:
+        spec = write_spec(c, w)
+    except SpecInvalid as e:
+        r.update(status="blocked", stop_reason=str(e), implementation="not attempted")
+        gitops.remove_worktree(c.repo, wt, branch)
+        return
     instructions = P.implement_instructions(spec, contract.canonical())
     # 4. Implement + verify with bounded repair loop
     attempts, failure, res = 0, None, {"ok": False, "steps": [], "ran": False}

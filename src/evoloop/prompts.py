@@ -49,9 +49,9 @@ ADVERSARIAL = ('For each finalist answer: are we solving a symptom? is there a s
                '{"reviews":[{"id","symptom_only":bool,"simpler_alternative":str|null,"key_assumption","loser","new_failure_mode",'
                '"fatal":bool,"verdict":"proceed|revise|reject","confidence":0-1}]}')
 
-SPEC = ('Write a concise implementation spec for the winner in THIS repository: what to change, which files (paths), acceptance '
-        'criteria as checkable statements, rollback. Smallest change that tests the hypothesis. Schema: '
-        '{"spec","files":[],"acceptance":[],"rollback"}')
+SPEC = ('You have NO tools and cannot inspect files; write from the context given. Write a concise implementation spec for the '
+        'winner in THIS repository: what to change, likely files (paths), acceptance criteria as checkable statements, rollback. '
+        'Smallest change that tests the hypothesis. Schema: {"spec":str,"files":[str],"acceptance":[str],"rollback":str}')
 
 REVIEW = ('Review this diff against the spec for correctness, missing states, security/auth, data consistency, error handling, '
           'race conditions, regressions, test gaps, unnecessary complexity. Schema: {"blocking":[str],"warnings":[str],"verdict":"approve|block"}')

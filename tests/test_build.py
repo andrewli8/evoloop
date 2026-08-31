@@ -121,3 +121,12 @@ def test_build_pick_and_high_risk_still_gated(repo):
     State(repo).db.execute("UPDATE cycles SET status='done'")
     r2 = run_cycle(repo, cfg(repo, high_risk_terms=["option"]), MockProvider(implement_fn=impl_ok), Mode.BUILD, from_cycle=a2["cycle"])
     assert r2["decision"] == "RECOMMEND" and "human gated" in r2["stop_reason"]
+
+
+def test_invalid_spec_blocks_before_coding(repo):
+    bad = {"tool_name": "Bash", "input": {"command": "ls"}}
+    p = MockProvider(implement_fn=impl_ok, script={"spec": bad})
+    r = run_cycle(repo, cfg(repo), p, Mode.BUILD)
+    assert r["status"] == "blocked" and "no usable spec" in r["stop_reason"]
+    assert sum(1 for c in p.calls if c[0] == "spec") == 2 and not any(c[0] == "implement" for c in p.calls)
+    assert not Path(r["worktree"]).exists()
