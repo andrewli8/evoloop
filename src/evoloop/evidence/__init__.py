@@ -95,7 +95,10 @@ def results(state, limit: int = 10) -> list[dict]:
             for r in state.nodes("Result", limit)]
 
 
-SOURCES = {"todos": todos, "git_log": git_log, "issues": issues, "docs": docs, "notes": notes}
+from .churn import collect_churn_evidence  # noqa: E402  (needs _ev above; keeps churn.py importable on its own)
+
+SOURCES = {"todos": todos, "git_log": git_log, "issues": issues, "docs": docs, "notes": notes,
+           "churn": collect_churn_evidence}
 
 
 def collect(repo: Path, state, sources: list[str], external: list[str] = (), external_exec: list[str] = (),
@@ -104,8 +107,13 @@ def collect(repo: Path, state, sources: list[str], external: list[str] = (), ext
     where `cmd:` is allowed because a human typed it. `cfg`: full Config, enables opt-in smoke evidence."""
     ev: list[dict] = []
     for s in sources:
+        if s == "churn" and cfg is not None and not cfg.evidence.churn_enabled:
+            continue
         try:
-            ev += results(state) if s == "results" else SOURCES[s](repo) if s in SOURCES else []
+            if s == "churn":
+                ev += collect_churn_evidence(repo, window_days=cfg.evidence.churn_window_days if cfg else 90)
+            else:
+                ev += results(state) if s == "results" else SOURCES[s](repo) if s in SOURCES else []
         except Exception as e:  # a broken source must not kill the cycle
             ev.append(_ev(s, "hypothetical", f"source failed: {e}", "-"))
     if cfg is not None and cfg.smoke.enabled:
