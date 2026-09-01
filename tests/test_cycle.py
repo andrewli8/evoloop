@@ -219,3 +219,15 @@ def test_empty_sources_reported(repo):
     r = run_cycle(repo, cfg(repo, evidence_sources=["todos", "issues", "notes"]), MockProvider(), Mode.ANALYZE)
     assert r["evidence_by_source"]["todos"] >= 1 and "issues" in r["empty_sources"]
     assert "configured but empty" in render(r)
+
+
+def test_reworded_problem_with_same_citations_abstains(repo):
+    (repo / ".evoloop" / "evidence" / "constraint.md").write_text("the binding constraint is that there are no users yet\n")
+    def cite(title):
+        return {"problem_search": lambda inp: {"problems": [{"title": title,
+                "evidence_ids": [e["id"] for e in inp["evidence"] if e["source"] == "notes"][:1], "confidence": 0.9}]}}
+    first = run_cycle(repo, cfg(repo), MockProvider(script=cite("No real usage evidence reaches the loop")), Mode.ANALYZE)
+    assert first["decision"] == "RECOMMEND"
+    p = MockProvider(script=cite("Evidence feeds exist but nothing emits data"))
+    r = run_cycle(repo, cfg(repo), p, Mode.ANALYZE)
+    assert r["decision"] == "STOP" and "repeated recommendation" in r["stop_reason"] and len(p.calls) == 1

@@ -223,13 +223,18 @@ def _repeated_recommendation(c: Ctx, problem: dict) -> str | None:
     Spending eight more model calls to re-derive the same answer is the failure mode this guards against."""
     from .report import BEHAVIOUR_SOURCES
     tier = lambda ev: {e.get("text") for e in ev if e.get("source") in BEHAVIOUR_SOURCES or e.get("kind") == "external"}  # noqa: E731
-    now = tier(c.result.get("supporting_evidence", []))
+    cited = lambda ev: {e.get("text") for e in ev}  # noqa: E731
+    now_ev = c.result.get("supporting_evidence", [])
     for prev in c.state.cycles(12):
         res = prev.get("result") or {}
         pt = (res.get("problem") or {}).get("title")
-        if pt and res.get("decision") in ("RECOMMEND", "STOP") and res.get("status") in ("done", "budget_exhausted") \
-                and search.jaccard(pt, problem["title"]) >= 0.6 and now <= tier(res.get("supporting_evidence", [])):
-            return prev["id"]  # same problem, and every user-tier item cited now was already cited then
+        if not pt or res.get("decision") not in ("RECOMMEND", "STOP") or res.get("status") not in ("done", "budget_exhausted"):
+            continue
+        prev_ev = res.get("supporting_evidence", [])
+        same_title = search.jaccard(pt, problem["title"]) >= 0.6
+        same_facts = bool(now_ev) and cited(now_ev) <= cited(prev_ev)  # reworded problem, identical citations
+        if (same_title or same_facts) and tier(now_ev) <= tier(prev_ev):
+            return prev["id"]  # same problem (by title or by the facts behind it) and no new user-tier item since
     return None
 
 

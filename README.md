@@ -36,6 +36,16 @@ evoloop analyze       # one cycle: problem -> opportunities -> finalists -> reco
    ```sh
    linear issues list --json | evoloop analyze --evidence-json -
    evoloop analyze --evidence-json "cmd:posthog query --sql \"select event, count() from events where event like '%error%' group by event\" --json"
+   ```
+
+   Payload shape (a bare array or `{"items": [...]}`; strings are shorthand for `{"text": ...}`):
+
+   ```json
+   {"items": [
+     {"id": "T-812", "text": "Export times out for accounts with >5k rows", "class": "observed", "url": "https://support.example/T-812"},
+     {"text": "Two testers could not find the billing page", "class": "observed"},
+     "Admins say onboarding feels long"
+   ]}
    evoloop run --evidence-json feedback.json --evidence-json "cmd:curl -s https://example.com/api/tickets"
    ```
 
