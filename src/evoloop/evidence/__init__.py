@@ -101,6 +101,14 @@ def results(state, limit: int = 10) -> list[dict]:
             for r in state.nodes("Result", limit)]
 
 
+def incidents(repo: Path, limit: int = 20) -> list[dict]:
+    """Failure-only crash log (.evoloop/incidents.jsonl): provider errors and unhandled cycle exceptions."""
+    from ..incidents import load_incidents
+    return [{**_ev("incidents", "observed", f"{r.get('kind', '?')} in {r.get('source') or '?'}: {r.get('summary', '')}",
+                   str(r.get("ts", "-"))), "kind": "incident"}
+            for r in load_incidents(repo, limit)]
+
+
 from .churn import collect_churn_evidence  # noqa: E402  (needs _ev above; keeps churn.py importable on its own)
 
 SOURCES = {"todos": todos, "git_log": git_log, "issues": issues, "docs": docs, "notes": notes,
@@ -134,6 +142,10 @@ def collect(repo: Path, state, sources: list[str], external: list[str] = (), ext
             ev += load_external_evidence(spec, cwd=repo)
         for spec in external_exec:
             ev += load_external_evidence(spec, cwd=repo, allow_exec=True)
+    try:  # after external so human-supplied incidents keep precedence; failure-only, contributes nothing when none
+        ev += incidents(repo)
+    except Exception as e:
+        ev.append(_ev("incidents", "hypothetical", f"source failed: {e}", "-"))
     rank = {c: i for i, c in enumerate(CLASSES)}
     ev.sort(key=lambda e: rank[e["class"]])
     for i, e in enumerate(ev):

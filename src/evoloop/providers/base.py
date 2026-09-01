@@ -53,12 +53,25 @@ class Budgeted:
     """Wraps a provider: counts usage, enforces hard budget, parses JSON replies."""
 
     def __init__(self, provider: Provider, max_calls: int, max_tokens: int, models: dict[str, str] | None = None,
-                 max_seconds: int | None = None):
+                 max_seconds: int | None = None, root: Path | None = None):
         self.p, self.max_calls, self.max_tokens, self.max_seconds = provider, max_calls, max_tokens, max_seconds
+        self.root = root  # where provider failures are recorded (.evoloop/incidents.jsonl)
         self.started = time.time()
         self.usage = Usage()
         self.models = models or {}
         self.calls: list[dict] = []  # per-call audit trail, written to runs/<cycle>/calls.jsonl
+
+    def _call(self, fn, *args):
+        """Run one provider call; a raise is recorded as a provider_error incident and re-raised unchanged."""
+        try:
+            return fn(*args)
+        except Exception as e:
+            from ..incidents import record_incident
+            m = re.search(r"failed \((-?\d+)\)", str(e))  # cli_agents._run message; CalledProcessError carries returncode
+            code = getattr(e, "returncode", None)
+            record_incident("provider_error", source=self.p.name, exit_code=code if isinstance(code, int) else int(m.group(1)) if m else None,
+                            summary=f"{type(e).__name__}: {str(e)[:200]}", detail=str(e)[-2000:], root=self.root)
+            raise
 
     def _check(self) -> None:
         if self.usage.calls >= self.max_calls:
@@ -71,7 +84,7 @@ class Budgeted:
     def text(self, role: Role, system: str, prompt: str) -> str:
         self._check()
         t = time.time()
-        out, i, o, *rest = self.p.complete(role, system, prompt)
+        out, i, o, *rest = self._call(self.p.complete, role, system, prompt)
         m = re.match(r"\[phase:(\w+)\]", prompt)
         self.calls.append({"phase": m.group(1) if m else "?", "role": role.value, "input_tokens": i, "output_tokens": o,
                            "cached_input_tokens": rest[0] if rest else 0, "prompt_chars": len(prompt), "reply_chars": len(out),
@@ -95,7 +108,7 @@ class Budgeted:
         self._check()
         self.usage.calls += 1
         self.usage.by_role["coding"] = self.usage.by_role.get("coding", 0) + 1
-        return self.p.implement(instructions, cwd)
+        return self._call(self.p.implement, instructions, cwd)
 
 
 def parse_json(text: str):

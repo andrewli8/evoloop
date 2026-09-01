@@ -34,6 +34,16 @@ def run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None = N
     """One bounded cycle. `from_cycle` skips search and builds the winner (or opportunity `pick`) of a previous cycle.
     `regate_cycle` re-runs verification/review/gate on a blocked cycle's existing branch.
     `evidence_json`: extra JSON evidence specs typed by the human (`cmd:` allowed there, never from config)."""
+    try:
+        return _run_cycle(repo, cfg, provider, mode, from_cycle, pick, regate_cycle, evidence_json)
+    except BaseException as exc:  # anything that escapes the cycle is a friction signal; record, then propagate unchanged
+        from .incidents import exception_incident
+        exception_incident(exc, source="cycle", root=repo)
+        raise
+
+
+def _run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None, from_cycle: str | None, pick: str | None,
+               regate_cycle: str | None, evidence_json: list[str] | None) -> dict:
     mode = mode or cfg.mode
     state = State(repo)
     if not cfg.enabled or mode == Mode.OFF:
@@ -48,7 +58,7 @@ def run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None = N
     run_dir.mkdir(parents=True, exist_ok=True)
     pack = scan.refresh(repo, scan.load_pack(repo))
     scan.save_pack(repo, pack)
-    llm = Budgeted(provider, cfg.budget.max_model_calls, cfg.budget.max_tokens, cfg.models, cfg.budget.max_seconds)
+    llm = Budgeted(provider, cfg.budget.max_model_calls, cfg.budget.max_tokens, cfg.models, cfg.budget.max_seconds, root=repo)
     ctx = Ctx(repo, cfg, state, llm, mode, cid, run_dir, pack, {"cycle": cid, "mode": mode.value, "provider": provider.name, "started": time.time()},
               list(evidence_json or []))
     try:
