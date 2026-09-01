@@ -117,7 +117,7 @@ Set `provider` in `config.yaml`:
 2. **Problem search** (1 fast call): problems must cite evidence ids; uncited ones are dropped. No evidence → the cycle stops with *insufficient evidence* and makes no further calls.
 3. **Stakeholders** (1 fast call): 2–4 roles inferred from the repo and problem. Simulated, never customer validation.
 4. **Solution branching** (1 reasoning call): ≤5 neighborhoods that differ in mechanism, ≤2 candidates each, one branch must be "no software". Deterministic dedup against this batch and archived candidates — lexical similarity plus structured mechanism/surface fields, so paraphrased duplicates collapse and the declared touched surfaces feed an extra risk signal that can only raise, never lower, the keyword-based risk gate.
-5. **Cheap tournament** (1 fast call + deterministic ranking): keep ~5 opportunities. One refinement pass only if candidates are weak or homogeneous.
+5. **Cheap tournament** (1 fast call + deterministic ranking): keep ~5 opportunities. One refinement pass only if candidates are weak or homogeneous. Every candidate carries its screening decision (kept or dropped, what it matched, which risk signal fired), and the report renders them per candidate so a wrong drop is visible rather than a silent count.
 6. **Finalist evaluation** (1 fast call per stakeholder): 3 finalists scored on pain fit, utility, behaviour change, friction, new work, failure cases.
 7. **Adversarial review** (1 reasoning call, separate critic system prompt): symptom vs cause, simpler alternative, who loses, new failure modes.
 8. **Decision** (deterministic): `STOP`, `RECOMMEND`, or `BUILD`. Analyze/plan modes never build. High-risk areas (auth, billing, migrations, deletes, secrets) are always human-gated.
