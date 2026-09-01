@@ -87,16 +87,23 @@ def risk_signal(c: dict, terms: list[str]) -> str | None:
     for s in _SENSITIVE_SURFACES:
         if any(seg.startswith(s) for p in _normalize_surface(c["surface"]) for seg in p.split("/")):
             return f"surface:{s}"
-    low = (c.get("title", "") + " " + c.get("summary", "")).lower()
+    from .contract import classify_risk
+    text = c.get("title", "") + " " + c.get("summary", "")
     for t in terms:
-        if t in low:
+        if classify_risk(text, [t]) != "low":
             return f"keyword:{t}"
     return None
 
 
 def classify_candidate_risk(c: dict, terms: list[str]) -> str:
     """max(structured risk, keyword risk): the structured signal only ever raises risk."""
-    return "high" if risk_signal(c, terms) else "low"
+    from .contract import classify_risk
+    c = ensure_structured(c)
+    mech_toks = _normalize_mechanism(c["mechanism"]).split()
+    structured = any(t.startswith(s) for t in mech_toks for s in _RISKY_MECH_STEMS) or \
+        any(seg.startswith(s) for p in _normalize_surface(c["surface"]) for seg in p.split("/") for s in _SENSITIVE_SURFACES)
+    keyword = classify_risk(c.get("title", "") + " " + c.get("summary", ""), terms)
+    return "high" if structured else keyword  # structured signal only raises to the top level; keyword otherwise preserved
 
 
 @dataclass(frozen=True)
