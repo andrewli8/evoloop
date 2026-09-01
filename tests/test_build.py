@@ -194,3 +194,24 @@ def test_auto_merge_ignores_dirty_context_pack(repo):
     assert subprocess.run(["git", "status", "--porcelain"], cwd=repo, capture_output=True, text=True).stdout.strip()
     r = run_cycle(repo, cfg(repo, auto_merge=True), MockProvider(implement_fn=impl_ok), Mode.BUILD)
     assert r["status"] == "merged", r.get("auto_merge")
+
+
+def test_interrupted_build_is_regateable(repo, monkeypatch):
+    import pytest
+    from evoloop import build as B
+    real = B.V.run_all
+    calls = {"n": 0}
+
+    def flaky(*a, **k):
+        calls["n"] += 1
+        if calls["n"] == 2:  # baseline passes; the post-implementation verification gets killed
+            raise KeyboardInterrupt
+        return real(*a, **k)
+    monkeypatch.setattr(B.V, "run_all", flaky)
+    with pytest.raises(KeyboardInterrupt):
+        run_cycle(repo, cfg(repo), MockProvider(implement_fn=impl_ok), Mode.BUILD)
+    monkeypatch.setattr(B.V, "run_all", real)
+    stuck = State(repo).cycles(1)[0]
+    assert stuck["status"] in ("in_progress", "interrupted") and stuck["result"]["spec"] and stuck["result"]["contract"]
+    r = run_cycle(repo, cfg(repo), MockProvider(), Mode.BUILD, regate_cycle=stuck["id"])
+    assert r["status"] == "awaiting_human" and r["gate"]["passed"]

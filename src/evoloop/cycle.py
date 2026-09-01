@@ -61,12 +61,13 @@ def _run_cycle(repo: Path, cfg: Config, provider: Provider, mode: Mode | None, f
     llm = Budgeted(provider, cfg.budget.max_model_calls, cfg.budget.max_tokens, cfg.models, cfg.budget.max_seconds, root=repo)
     ctx = Ctx(repo, cfg, state, llm, mode, cid, run_dir, pack, {"cycle": cid, "mode": mode.value, "provider": provider.name, "started": time.time()},
               list(evidence_json or []))
+    status = "interrupted"  # what `finally` records if a KeyboardInterrupt/SystemExit escapes the handlers below
     try:
         if regate_cycle:
             from .build import regate
             prev = next((x for x in state.cycles(200) if x["id"] == regate_cycle), None)
-            if not prev or not prev.get("result") or prev["result"].get("status") != "blocked":
-                raise ValueError(f"{regate_cycle} is not a blocked cycle")
+            if not prev or not prev.get("result") or prev["result"].get("status") not in ("blocked", "in_progress", "interrupted"):
+                raise ValueError(f"{regate_cycle} is not a blocked or interrupted cycle")
             ctx.result["decision"] = "BUILD"
             regate(ctx, prev["result"])
         else:

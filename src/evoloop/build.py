@@ -27,6 +27,14 @@ def write_spec(c: Ctx, w: dict) -> dict:
     return spec
 
 
+def _checkpoint(c: Ctx) -> None:
+    """Persist the in-progress build so a killed process (timeout, SIGKILL) leaves a cycle `evoloop regate` can resume."""
+    from .report import write
+    c.result["status"] = "in_progress"
+    write(c)
+    c.state.finish_cycle(c.cycle_id, "in_progress", c.result)
+
+
 def _valid_spec(spec) -> bool:
     return isinstance(spec, dict) and isinstance(spec.get("spec"), str) and len(spec["spec"]) > 20 and "tool_name" not in spec
 
@@ -51,6 +59,7 @@ def build(c: Ctx) -> None:
     r["baseline"] = V.run_all(cfg.commands, wt)
     try:
         spec = write_spec(c, w)
+        _checkpoint(c)
     except SpecInvalid as e:
         r.update(status="blocked", stop_reason=str(e), implementation="not attempted")
         gitops.remove_worktree(c.repo, wt, branch)
@@ -62,6 +71,7 @@ def build(c: Ctx) -> None:
         while attempts <= cfg.loops.repair:
             attempts += 1
             c.llm.implement(P.implement_instructions(spec, contract.canonical(), failure) if failure else instructions, wt)
+            _checkpoint(c)
             res = V.run_all(cfg.commands, wt, c.run_dir)
             if res["ok"]:
                 break
