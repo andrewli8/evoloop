@@ -105,3 +105,12 @@ def test_evidence_includes_incidents(repo):
     got = [e for e in ev_mod.collect(repo, state, ["todos"]) if e["source"] == "incidents"]
     assert len(got) == 1 and got[0]["kind"] == "incident" and got[0]["class"] == "observed"
     assert "provider_error in claude-cli: claude failed (1)" in got[0]["text"] and got[0]["id"]
+
+
+def test_incident_log_is_capped(tmp_path):
+    from evoloop.incidents import MAX_RECORDS, incidents_path, load_incidents, record_incident
+    (tmp_path / ".evoloop").mkdir()
+    for i in range(MAX_RECORDS + 60):
+        record_incident("provider_error", summary=f"e{i}", root=tmp_path)
+    assert len(incidents_path(tmp_path).read_text().splitlines()) == MAX_RECORDS
+    assert load_incidents(tmp_path, limit=1)[0]["summary"] == f"e{MAX_RECORDS + 59}"

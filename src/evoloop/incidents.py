@@ -11,6 +11,7 @@ from .config import EVO_DIR, Config
 
 INCIDENTS_FILENAME = "incidents.jsonl"
 DETAIL_MAX_CHARS = 4000
+MAX_RECORDS = 500  # keep the file bounded: it is read in full on every evidence collect
 
 
 def incidents_path(root: Path) -> Path:
@@ -30,6 +31,9 @@ def record_incident(kind: str, *, summary: str, detail: str = "", source: str = 
         p.parent.mkdir(parents=True, exist_ok=True)
         with p.open("a", encoding="utf-8") as f:
             f.write(json.dumps(rec) + "\n")
+        lines = p.read_text(encoding="utf-8", errors="ignore").splitlines()
+        if len(lines) > MAX_RECORDS:
+            p.write_text("\n".join(lines[-MAX_RECORDS:]) + "\n", encoding="utf-8")
     except Exception:
         return
 

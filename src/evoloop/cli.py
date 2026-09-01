@@ -16,7 +16,7 @@ app = typer.Typer(help="EvolveLoop: bounded, evidence-driven product improvement
 skill_app = typer.Typer(help="Host coding-agent skill adapters.")
 app.add_typer(skill_app, name="skill")
 
-GITIGNORE = "state.sqlite\nstate.sqlite-*\nruns/\nworktrees/\noptimize/\nproject.json\n"
+GITIGNORE = "state.sqlite\nstate.sqlite-*\nruns/\nworktrees/\noptimize/\nproject.json\nincidents.jsonl\n"
 
 
 def _repo() -> Path:
