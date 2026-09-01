@@ -122,6 +122,8 @@ def _search(c: Ctx) -> None:
     evidence = ev_mod.collect(c.repo, c.state, c.cfg.evidence_sources, c.cfg.evidence.external, c.evidence_exec,
                               cfg=c.cfg)
     r["evidence_count"] = {k: sum(1 for e in evidence if e["class"] == k) for k in ev_mod.CLASSES}
+    r["evidence_by_source"] = {src: sum(1 for e in evidence if e["source"] == src) for src in c.cfg.evidence_sources}
+    r["empty_sources"] = [src for src, n in r["evidence_by_source"].items() if n == 0]
     if not evidence:
         r.update(decision="STOP", stop_reason="insufficient evidence: no evidence sources produced anything", problem=None)
         return
@@ -215,15 +217,15 @@ def _search(c: Ctx) -> None:
 def _repeated_recommendation(c: Ctx, problem: dict) -> str | None:
     """Cycle id of a recent RECOMMEND/STOP whose problem matches this one, when only repo-internal evidence backs it.
     Spending eight more model calls to re-derive the same answer is the failure mode this guards against."""
-    from .report import behaviour_tier
-    if behaviour_tier(c.result.get("supporting_evidence", [])):
-        return None
+    from .report import BEHAVIOUR_SOURCES
+    tier = lambda ev: {e.get("text") for e in ev if e.get("source") in BEHAVIOUR_SOURCES or e.get("kind") == "external"}  # noqa: E731
+    now = tier(c.result.get("supporting_evidence", []))
     for prev in c.state.cycles(12):
         res = prev.get("result") or {}
         pt = (res.get("problem") or {}).get("title")
         if pt and res.get("decision") in ("RECOMMEND", "STOP") and res.get("status") in ("done", "budget_exhausted") \
-                and search.jaccard(pt, problem["title"]) >= 0.6:
-            return prev["id"]
+                and search.jaccard(pt, problem["title"]) >= 0.6 and now <= tier(res.get("supporting_evidence", [])):
+            return prev["id"]  # same problem, and every user-tier item cited now was already cited then
     return None
 
 

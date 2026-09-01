@@ -24,6 +24,9 @@ def render(r: dict) -> str:
         L += ["> **MOCK PROVIDER** — every model output below is placeholder text. Set `provider` in `.evoloop/config.yaml`.", ""]
     if r.get("stop_reason"):
         L += [f"**Outcome:** {r['stop_reason']}", ""]
+    if r.get("empty_sources"):
+        L += [f"> Evidence sources configured but empty this cycle: {', '.join(r['empty_sources'])} "
+              f"(counts: {r.get('evidence_by_source')})", ""]
     p = r.get("problem")
     if p:
         L += ["## Problem", f"**{p['title']}** (workflow: {p.get('workflow')}, evidence score {p.get('evidence_score')})", ""]

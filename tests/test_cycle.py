@@ -172,3 +172,21 @@ def test_repeated_recommendation_abstains_after_one_call(repo):
         {"title": first["problem"]["title"], "evidence_ids": [e["id"] for e in inp["evidence"] if e["source"] == "notes"][:1], "confidence": 0.9}]}})
     r3 = run_cycle(repo, cfg(repo), p2, Mode.ANALYZE)
     assert r3["decision"] == "RECOMMEND" and len(p2.calls) > 1
+
+
+def test_repeat_with_same_note_cited_still_abstains(repo):
+    (repo / ".evoloop" / "evidence" / "constraint.md").write_text("the binding constraint is that there are no users yet\n")
+    cite_note = {"problem_search": lambda inp: {"problems": [{"title": "No real usage evidence reaches the loop",
+                 "evidence_ids": [e["id"] for e in inp["evidence"] if e["source"] == "notes"][:1], "confidence": 0.9}]}}
+    first = run_cycle(repo, cfg(repo), MockProvider(script=cite_note), Mode.ANALYZE)
+    assert first["decision"] == "RECOMMEND"
+    p = MockProvider(script=cite_note)
+    r = run_cycle(repo, cfg(repo), p, Mode.ANALYZE)
+    assert r["decision"] == "STOP" and len(p.calls) == 1
+
+
+def test_empty_sources_reported(repo):
+    from evoloop.report import render
+    r = run_cycle(repo, cfg(repo, evidence_sources=["todos", "issues", "notes"]), MockProvider(), Mode.ANALYZE)
+    assert r["evidence_by_source"]["todos"] >= 1 and "issues" in r["empty_sources"]
+    assert "configured but empty" in render(r)
