@@ -101,13 +101,13 @@ def test_concurrent_cycles_prevented(repo):
 
 def test_memory_retrieval_and_archive(repo):
     p = MockProvider()
-    run_cycle(repo, cfg(repo), p, Mode.ANALYZE)
+    run_cycle(repo, cfg(repo, search={**cfg(repo).search.model_dump(), "abstain_on_repeat": False}), p, Mode.ANALYZE)
     s = State(repo)
     assert s.nodes("Lesson") and s.nodes("Intervention") and s.nodes("Problem")
     prob = s.nodes("Problem")[0]
     assert s.related(prob["id"], "supported_by")
     second = MockProvider()
-    r2 = run_cycle(repo, cfg(repo), second, Mode.ANALYZE)
+    r2 = run_cycle(repo, cfg(repo, search={**cfg(repo).search.model_dump(), "abstain_on_repeat": False}), second, Mode.ANALYZE)
     branch_call = next(c for c in second.calls if c[0] == "branches")
     assert r2["lessons_used"]  # relevant lesson retrieved
     assert r2["dedup_dropped"] > 0  # previously archived candidates not regenerated
@@ -157,3 +157,18 @@ def test_wall_clock_budget_enforced_without_token_telemetry(repo):
     p = Untelemetered()
     r = run_cycle(repo, cfg(repo, budget={"max_model_calls": 40, "max_tokens": 10**9, "max_seconds": 0}), p, Mode.ANALYZE)
     assert r["status"] == "budget_exhausted" and "wall-clock" in r["stop_reason"] and p.calls == []
+
+
+def test_repeated_recommendation_abstains_after_one_call(repo):
+    first = run_cycle(repo, cfg(repo), MockProvider(), Mode.ANALYZE)
+    assert first["decision"] == "RECOMMEND"
+    p = MockProvider()
+    r = run_cycle(repo, cfg(repo), p, Mode.ANALYZE)
+    assert r["decision"] == "STOP" and "repeated recommendation" in r["stop_reason"]
+    assert len(p.calls) == 1  # problem search only
+    # new user-tier evidence lifts the abstention
+    (repo / ".evoloop" / "evidence" / "users.md").write_text("Two testers said onboarding is confusing for admins\n")
+    p2 = MockProvider(script={"problem_search": lambda inp: {"problems": [
+        {"title": first["problem"]["title"], "evidence_ids": [e["id"] for e in inp["evidence"] if e["source"] == "notes"][:1], "confidence": 0.9}]}})
+    r3 = run_cycle(repo, cfg(repo), p2, Mode.ANALYZE)
+    assert r3["decision"] == "RECOMMEND" and len(p2.calls) > 1

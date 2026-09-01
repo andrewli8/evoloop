@@ -33,6 +33,7 @@ class Search(BaseModel):
     opportunities: int = 5
     finalists: int = 3
     stakeholder_roles: int = 4
+    abstain_on_repeat: bool = True  # stop after problem search when the same problem was recently recommended and no user-tier evidence is new
 
 
 class Loops(BaseModel):

@@ -146,6 +146,12 @@ def _search(c: Ctx) -> None:
     problem = problems[0]
     r["problem"] = problem
     r["supporting_evidence"] = [e for e in evidence if e["id"] in problem["evidence_ids"]]
+    repeat = _repeated_recommendation(c, problem) if s.abstain_on_repeat else None
+    if repeat:
+        r.update(decision="STOP", winner=None,
+                 stop_reason=f"repeated recommendation: near-identical problem already recommended in cycle {repeat} "
+                             "and no new user-tier evidence (issues, notes, external, smoke, results) has arrived since; abstaining")
+        return
     r["lessons_used"] = search.relevant(lessons, problem["title"] + " " + problem.get("workflow", ""), ("problem", "workflow", "mechanism"), 3)
     # STAKEHOLDER SYNTHESIS (AI, fast)
     roles = _list(llm.json(Role.FAST, P.GENERATOR, P.p("stakeholders", P.stakeholders(s.stakeholder_roles),
@@ -204,6 +210,21 @@ def _search(c: Ctx) -> None:
         f["adversarial"] = reviews.get(f["id"], {})
     r["finalists"] = finalists
     _decide(c, finalists)
+
+
+def _repeated_recommendation(c: Ctx, problem: dict) -> str | None:
+    """Cycle id of a recent RECOMMEND/STOP whose problem matches this one, when only repo-internal evidence backs it.
+    Spending eight more model calls to re-derive the same answer is the failure mode this guards against."""
+    from .report import behaviour_tier
+    if behaviour_tier(c.result.get("supporting_evidence", [])):
+        return None
+    for prev in c.state.cycles(12):
+        res = prev.get("result") or {}
+        pt = (res.get("problem") or {}).get("title")
+        if pt and res.get("decision") in ("RECOMMEND", "STOP") and res.get("status") in ("done", "budget_exhausted") \
+                and search.jaccard(pt, problem["title"]) >= 0.6:
+            return prev["id"]
+    return None
 
 
 def _branch(c: Ctx, problem, roles, prior_titles, lessons, missing) -> list[dict]:

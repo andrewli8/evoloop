@@ -126,6 +126,8 @@ Set `provider` in `config.yaml`:
 
 A built cycle ends in `awaiting_human`; further cycles pause until `evoloop resolve`.
 
+A cycle also abstains cheaply when it would only repeat itself: if the selected problem near-matches one recommended in a recent cycle and nothing user-facing (issues, notes, external feeds, smoke runs, real outcomes) has arrived since, it stops after the single problem-search call instead of re-deriving the same recommendation (`search.abstain_on_repeat`, on by default).
+
 **Unattended mode.** Set `auto_merge: true` in `config.yaml` yourself (the tool never sets it) and a branch that passes the gate is merged into the checked-out branch with `--no-ff`, the deterministic checks run again on the merged tree, and the cycle auto-resolves at level 1 so the next one starts immediately. If the merged tree fails, the merge is backed out and the branch waits for you as before. High-risk areas stay human-gated regardless. Nothing is ever pushed.
 
 ## Bounds and budget (config.yaml)

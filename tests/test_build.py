@@ -117,7 +117,7 @@ def test_build_pick_and_high_risk_still_gated(repo):
     assert r["winner"]["title"] == other["title"] and r["status"] == "awaiting_human"
     from evoloop.state import State
     State(repo).db.execute("UPDATE cycles SET status='done'")  # clear awaiting so another build can run
-    a2 = run_cycle(repo, cfg(repo, high_risk_terms=["option"]), MockProvider(), Mode.ANALYZE)
+    a2 = run_cycle(repo, cfg(repo, high_risk_terms=["option"], search={**cfg(repo).search.model_dump(), "abstain_on_repeat": False}), MockProvider(), Mode.ANALYZE)
     State(repo).db.execute("UPDATE cycles SET status='done'")
     r2 = run_cycle(repo, cfg(repo, high_risk_terms=["option"]), MockProvider(implement_fn=impl_ok), Mode.BUILD, from_cycle=a2["cycle"])
     assert r2["decision"] == "RECOMMEND" and "human gated" in r2["stop_reason"]
