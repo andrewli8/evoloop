@@ -85,6 +85,7 @@ class Config(BaseModel):
     auto_merge: bool = False  # never flipped by the tool itself
     optimize: Optimize = Optimize()
     smoke: Smoke = Smoke()
+    capture_incidents: bool = True  # failure-only crash log at .evoloop/incidents.jsonl, read back as evidence
 
     @staticmethod
     def path(repo: Path) -> Path:
