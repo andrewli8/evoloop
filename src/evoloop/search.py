@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import asdict, dataclass
 
 STOP = {"the", "a", "an", "of", "to", "for", "and", "in", "on", "with", "via", "by", "option", "add"}
 
@@ -76,6 +77,24 @@ def _structured_dup(a: dict, b: dict) -> bool:
     return bool(ma) and ma == mb and bool(_normalize_surface(a["surface"]) & _normalize_surface(b["surface"]))
 
 
+def risk_signal(c: dict, terms: list[str]) -> str | None:
+    """Name of the first rule that escalates this candidate (mechanism:<stem>, surface:<domain>, keyword:<term>), or None."""
+    c = ensure_structured(c)
+    mech_toks = _normalize_mechanism(c["mechanism"]).split()
+    for s in _RISKY_MECH_STEMS:
+        if any(t.startswith(s) for t in mech_toks):
+            return f"mechanism:{s}"
+    for s in _SENSITIVE_SURFACES:
+        if any(seg.startswith(s) for p in _normalize_surface(c["surface"]) for seg in p.split("/")):
+            return f"surface:{s}"
+    from .contract import classify_risk
+    text = c.get("title", "") + " " + c.get("summary", "")
+    for t in terms:
+        if classify_risk(text, [t]) != "low":
+            return f"keyword:{t}"
+    return None
+
+
 def classify_candidate_risk(c: dict, terms: list[str]) -> str:
     """max(structured risk, keyword risk): the structured signal only ever raises risk."""
     from .contract import classify_risk
@@ -87,17 +106,51 @@ def classify_candidate_risk(c: dict, terms: list[str]) -> str:
     return "high" if structured else keyword  # structured signal only raises to the top level; keyword otherwise preserved
 
 
-def dedup(cands: list[dict], prior_titles: list[str], threshold: float = 0.6) -> tuple[list[dict], int]:
+@dataclass(frozen=True)
+class ScreenDecision:
+    verdict: str  # "keep" | "drop"
+    matched_id: str | None = None  # id (or title, before ids are assigned) of the prior/duplicate candidate it matched
+    similarity: float | None = None  # score that produced matched_id, 0.0-1.0
+    risk_signal: str | None = None  # name of the rule that escalated it
+    reason: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+def _match(c: dict, kept: list[dict], prior_titles: list[str], threshold: float) -> ScreenDecision | None:
+    key = c["title"] + " " + c.get("summary", "")
+    for k in kept:
+        kid = k.get("id") or k["title"]
+        if _structured_dup(c, k):
+            return ScreenDecision("drop", kid, 1.0, reason="same mechanism and surface")
+        sim = jaccard(key, k["title"] + " " + k.get("summary", ""))
+        if sim >= threshold:
+            return ScreenDecision("drop", kid, round(sim, 3), reason="near-duplicate of another candidate")
+    for t in prior_titles:
+        sim = jaccard(c["title"], t)
+        if sim >= 0.8:
+            return ScreenDecision("drop", t, round(sim, 3), reason="already explored in a prior cycle")
+    return None
+
+
+def screen(cands: list[dict], prior_titles: list[str], threshold: float = 0.6, terms: list[str] = ()) -> list[dict]:
+    """Every candidate, in order, with one ScreenDecision attached under `screen` (as a dict, so it serializes)."""
+    out: list[dict] = []
     kept: list[dict] = []
-    dropped = 0
     for c in map(ensure_structured, cands):
-        key = c["title"] + " " + c.get("summary", "")
-        if any(_structured_dup(c, k) or jaccard(key, k["title"] + " " + k.get("summary", "")) >= threshold for k in kept) or \
-           any(jaccard(c["title"], t) >= 0.8 for t in prior_titles):
-            dropped += 1
-            continue
-        kept.append(c)
-    return kept, dropped
+        d = _match(c, kept, prior_titles, threshold) or ScreenDecision("keep", risk_signal=risk_signal(c, terms))
+        c = {**c, "screen": d.to_dict()}
+        out.append(c)
+        if d.verdict == "keep":
+            kept.append(c)
+    return out
+
+
+def dedup(cands: list[dict], prior_titles: list[str], threshold: float = 0.6) -> tuple[list[dict], int]:
+    screened = screen(cands, prior_titles, threshold)
+    kept = [c for c in screened if c["screen"]["verdict"] == "keep"]
+    return kept, len(screened) - len(kept)
 
 
 def cheap_rank(cands: list[dict], scores: list[dict]) -> list[dict]:

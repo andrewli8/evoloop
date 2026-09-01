@@ -162,9 +162,9 @@ def _search(c: Ctx) -> None:
     # SOLUTION BRANCHING (AI, reasoning) + DEDUP (deterministic)
     prior = c.state.nodes("Intervention", 200)
     prior_titles = [i["title"] for i in search.relevant(prior, problem["title"], ("problem",), 30)]
-    cands = _branch(c, problem, roles, prior_titles, r["lessons_used"], missing=None)
-    cands, dropped = search.dedup(cands, prior_titles)
-    r["dedup_dropped"] = dropped
+    kept = lambda xs: [x for x in xs if x["screen"]["verdict"] == "keep"]  # noqa: E731
+    r["screened"] = search.screen(_branch(c, problem, roles, prior_titles, r["lessons_used"], missing=None), prior_titles, terms=c.cfg.high_risk_terms)
+    cands = kept(r["screened"])
     for i, cnd in enumerate(cands):
         cnd["id"] = f"c{i+1}"
     # CHEAP TOURNAMENT (AI fast scoring, deterministic ranking)
@@ -178,13 +178,16 @@ def _search(c: Ctx) -> None:
             break
         missing = [m for m in ["remove the problem", "simplify", "automate", "guide", "validate", "change workflow", "no-software/process"]
                    if m not in search.mechanisms(cands)]
-        extra, _ = search.dedup(_branch(c, problem, roles, prior_titles + [x["title"] for x in cands], r["lessons_used"], missing), prior_titles)
+        more = search.screen(_branch(c, problem, roles, prior_titles + [x["title"] for x in cands], r["lessons_used"], missing), prior_titles, terms=c.cfg.high_risk_terms)
+        r["screened"] += more
+        extra = kept(more)
         for j, e in enumerate(extra):
             e["id"] = f"c{len(cands)+j+1}"
         cands += extra
         ranked = _cheap(c, cands, problem)
         opportunities = ranked[: s.opportunities]
         r["refinement_used"] = True
+    r["dedup_dropped"] = len(r["screened"]) - len(cands)  # derived from the attached decisions: everything screened that was not kept
     r["raw_candidates"] = len(cands)
     r["branches"] = sorted(search.mechanisms(cands))
     r["opportunities"] = opportunities

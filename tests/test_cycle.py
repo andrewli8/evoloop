@@ -71,6 +71,35 @@ def test_duplicates_removed(repo):
     assert r["dedup_dropped"] == 1 and r["raw_candidates"] == 2
 
 
+def test_screen_decisions_attached_and_rendered(repo):
+    from evoloop.report import render
+    branches = {"branches": [{"mechanism": "simplify", "candidates": [
+        {"title": "Simplify the onboarding form", "summary": "Fewer fields", "mechanism": "simplify"},
+        {"title": "Simplify onboarding form", "summary": "Fewer fields", "mechanism": "simplify"}]},
+        {"mechanism": "automate", "candidates": [{"title": "Purge stale rows nightly", "summary": "cron", "mechanism": "delete stale rows"}]},
+        {"mechanism": "no-software/process", "candidates": [{"title": "Write a setup guide", "summary": "docs", "mechanism": "no-software/process", "software_required": False}]}]}
+    r = run_cycle(repo, cfg(repo, loops={"refinement": 0}), MockProvider(script={"branches": branches}), Mode.ANALYZE)
+    screened = r["screened"]
+    assert len(screened) == 4 and all(set(c["screen"]) == {"verdict", "matched_id", "similarity", "risk_signal", "reason"} for c in screened)
+    by_title = {c["title"]: c["screen"] for c in screened}
+    dup = by_title["Simplify onboarding form"]
+    assert dup["verdict"] == "drop" and dup["matched_id"] == "Simplify the onboarding form" and dup["similarity"] >= 0.6
+    assert by_title["Simplify the onboarding form"]["verdict"] == "keep" and by_title["Simplify the onboarding form"]["risk_signal"] is None
+    assert by_title["Purge stale rows nightly"]["risk_signal"] == "mechanism:delet"
+    assert r["dedup_dropped"] == sum(1 for c in screened if c["screen"]["verdict"] == "drop") == 1
+    md = render(r)
+    assert "dedup dropped: 1" in md
+    assert "| Simplify onboarding form | drop | Simplify the onboarding form |" in md
+    assert "| keep | - | - | mechanism:delet |" in md
+    json.dumps(r)  # decisions serialize with the rest of the result
+
+
+def test_report_renders_candidates_without_screen_decision():
+    from evoloop.report import render
+    md = render({"cycle": "old", "branches": ["simplify"], "opportunities": [{"id": "c1", "title": "legacy candidate"}]})
+    assert "| c1 | legacy candidate | unknown | - | - | - |" in md
+
+
 def test_budget_enforced(repo):
     p = MockProvider()
     r = run_cycle(repo, cfg(repo, budget={"max_model_calls": 3, "max_tokens": 10**9}), p, Mode.ANALYZE)

@@ -18,6 +18,14 @@ def behaviour_tier(evidence: list[dict]) -> bool:
     return any(e.get("source") in BEHAVIOUR_SOURCES or e.get("kind") == "external" for e in evidence)
 
 
+def _screen_row(c: dict) -> str:
+    d = c.get("screen") or {}  # older payloads carry no decision
+    sim = d.get("similarity")
+    cells = [c.get("id") or "-", c.get("title", "-"), d.get("verdict") or "unknown", d.get("matched_id") or "-",
+             f"{sim:.2f}" if isinstance(sim, (int, float)) else "-", d.get("risk_signal") or "-"]
+    return "| " + " | ".join(str(x).replace("|", "\\|") for x in cells) + " |"
+
+
 def render(r: dict) -> str:
     L = [f"# EvolveLoop cycle {r.get('cycle')} — {r.get('mode')} — decision: {r.get('decision')}", ""]
     if r.get("provider") == "mock":
@@ -39,6 +47,8 @@ def render(r: dict) -> str:
         L += ["## Stakeholders (simulated, inferred from repo)"] + [f"- **{s.get('role')}**: {s.get('goal')} — pain: {s.get('current_pain')}" for s in r["stakeholders"]] + [""]
     if r.get("branches"):
         L += ["## Solution branches", ", ".join(r["branches"]), f"raw candidates: {r.get('raw_candidates')}, dedup dropped: {r.get('dedup_dropped')}", ""]
+        L += ["### Screening", "| id | candidate | verdict | matched | similarity | risk signal |", "|---|---|---|---|---|---|"]
+        L += [_screen_row(c) for c in r.get("screened") or r.get("opportunities") or []] + [""]
     if r.get("opportunities"):
         L += ["## Worthwhile opportunities"] + [f"{i+1}. **{o['title']}** [{o.get('mechanism')}] cheap={o.get('cheap_score')} — {o.get('summary')}"
                                                  for i, o in enumerate(r["opportunities"])] + [""]
